@@ -1,0 +1,129 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "search": "Search",
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Try again",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "yes": "Yes",
+    "no": "No",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "remove": "Remove",
+    "empty": "No data",
+    "refresh": "Refresh",
+    "offline": "Offline — showing cached data"
+  },
+  "layout": {
+    "modules": {
+      "indeklima": "Indoor Climate",
+      "preservation": "Preservation",
+      "water": "Water Detection",
+      "space": "Space Management",
+      "pushbuttons": "Push Buttons",
+      "doors": "Cabinets & Doors",
+      "usage": "Usage"
+    },
+    "tabs": {
+      "home": "Home",
+      "sensors": "Sensors",
+      "alerts": "Alerts",
+      "profile": "Profile"
+    },
+    "coming_soon": "Coming soon"
+  },
+  "auth": {
+    "sign_in": "Sign in",
+    "sign_out": "Sign out",
+    "email": "Email",
+    "password": "Password",
+    "forgot_password": "Forgot password?",
+    "sign_in_with_google": "Sign in with Google",
+    "invalid_credentials": "Incorrect email or password",
+    "email_required": "Please enter your email",
+    "password_required": "Please enter your password",
+    "firebase_not_configured": "Firebase is not configured for this app — add your Firebase keys to app.json or .env",
+    "welcome": "Welcome back",
+    "welcome_subtitle": "Sign in with your RoomAlyzer account",
+    "mfa": {
+      "challenge_title": "Two-factor authentication",
+      "challenge_subtitle": "Enter the 6-digit code from your authenticator app.",
+      "code_label": "Verification code",
+      "verify": "Verify code",
+      "error_init": "Could not start two-factor authentication. Please try again.",
+      "error_invalid_code": "Invalid code. Check your authenticator app and try again."
+    }
+  },
+  "tenant": {
+    "select_tenant": "Select customer",
+    "select_tenant_subtitle": "You have access to multiple tenants. Pick which one to use now.",
+    "active": "Active",
+    "switch": "Switch tenant"
+  },
+  "home": {
+    "title": "Overview",
+    "subtitle": "Latest status of your sensors",
+    "choose_module": "Choose module",
+    "module_unavailable": "This module is not yet available in the mobile app",
+    "greeting": "Hi {{name}}",
+    "modules_coming_soon": "More modules coming soon — Preservation, Water Detection and Space Management"
+  },
+  "indeklima": {
+    "title": "Indoor Climate",
+    "subtitle": "Temperature, humidity and CO₂",
+    "sensors": {
+      "title": "Sensors",
+      "subtitle": "All indoor-climate sensors in {{tenant}}",
+      "empty": "No sensors found",
+      "empty_subtitle": "No indoor-climate sensors are linked to this tenant yet.",
+      "search_placeholder": "Search sensors...",
+      "all_locations": "All locations"
+    },
+    "alerts": {
+      "title": "Alerts",
+      "subtitle": "Active and recent indoor-climate alerts",
+      "empty": "No active alerts",
+      "active": "Active",
+      "resolved": "Resolved"
+    },
+    "sensor_detail": {
+      "history": "History",
+      "period": {
+        "day": "Day",
+        "week": "Week",
+        "month": "Month",
+        "year": "Year"
+      },
+      "params": {
+        "temp": "Temperature",
+        "hum": "Humidity",
+        "co2": "CO₂",
+        "voc": "VOC"
+      },
+      "last_update": "Last update",
+      "battery": "Battery",
+      "signal": "Signal"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Account, tenant and settings",
+    "language": "Language",
+    "account": "Account",
+    "app_version": "App version"
+  },
+  "errors": {
+    "network": "Could not connect. Please check your internet connection.",
+    "unauthorized": "You've been signed out. Please sign in again.",
+    "forbidden": "You don't have permission to access this.",
+    "server": "A server error occurred. Please try again later.",
+    "unknown": "An unexpected error occurred."
+  }
+}

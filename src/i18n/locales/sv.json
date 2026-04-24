@@ -1,0 +1,129 @@
+{
+  "common": {
+    "save": "Spara",
+    "cancel": "Avbryt",
+    "close": "Stäng",
+    "search": "Sök",
+    "loading": "Laddar...",
+    "error": "Fel",
+    "retry": "Försök igen",
+    "back": "Tillbaka",
+    "next": "Nästa",
+    "previous": "Föregående",
+    "yes": "Ja",
+    "no": "Nej",
+    "confirm": "Bekräfta",
+    "delete": "Ta bort",
+    "edit": "Redigera",
+    "add": "Lägg till",
+    "remove": "Ta bort",
+    "empty": "Inga data",
+    "refresh": "Uppdatera",
+    "offline": "Offline — visar cachad data"
+  },
+  "layout": {
+    "modules": {
+      "indeklima": "Inomhusklimat",
+      "preservation": "Bevaring",
+      "water": "Vattendetektion",
+      "space": "Space Management",
+      "pushbuttons": "Tryckknappar",
+      "doors": "Skåp & Dörrar",
+      "usage": "Användning"
+    },
+    "tabs": {
+      "home": "Hem",
+      "sensors": "Sensorer",
+      "alerts": "Larm",
+      "profile": "Profil"
+    },
+    "coming_soon": "Kommer snart"
+  },
+  "auth": {
+    "sign_in": "Logga in",
+    "sign_out": "Logga ut",
+    "email": "E-post",
+    "password": "Lösenord",
+    "forgot_password": "Glömt lösenord?",
+    "sign_in_with_google": "Logga in med Google",
+    "invalid_credentials": "Fel e-post eller lösenord",
+    "email_required": "Ange e-post",
+    "password_required": "Ange lösenord",
+    "firebase_not_configured": "Firebase är inte konfigurerat — lägg till nycklar i app.json eller .env",
+    "welcome": "Välkommen tillbaka",
+    "welcome_subtitle": "Logga in med ditt RoomAlyzer-konto",
+    "mfa": {
+      "challenge_title": "Tvåfaktorsautentisering",
+      "challenge_subtitle": "Ange den 6-siffriga koden från din autentiseringsapp.",
+      "code_label": "Verifieringskod",
+      "verify": "Bekräfta kod",
+      "error_init": "Kunde inte starta tvåfaktorsautentisering. Försök igen.",
+      "error_invalid_code": "Ogiltig kod. Kontrollera din autentiseringsapp och försök igen."
+    }
+  },
+  "tenant": {
+    "select_tenant": "Välj kund",
+    "select_tenant_subtitle": "Du har tillgång till flera kunder. Välj vilken du vill använda nu.",
+    "active": "Aktiv",
+    "switch": "Byt kund"
+  },
+  "home": {
+    "title": "Översikt",
+    "subtitle": "Senaste status för dina sensorer",
+    "choose_module": "Välj modul",
+    "module_unavailable": "Den här modulen är inte tillgänglig i mobilappen än",
+    "greeting": "Hej {{name}}",
+    "modules_coming_soon": "Fler moduler på väg — Bevarande, Vattendetektering och Space Management"
+  },
+  "indeklima": {
+    "title": "Inomhusklimat",
+    "subtitle": "Temperatur, luftfuktighet och CO₂",
+    "sensors": {
+      "title": "Sensorer",
+      "subtitle": "Alla inomhusklimat-sensorer i {{tenant}}",
+      "empty": "Inga sensorer hittades",
+      "empty_subtitle": "Det finns inga inomhusklimat-sensorer kopplade till denna kund än.",
+      "search_placeholder": "Sök sensorer...",
+      "all_locations": "Alla platser"
+    },
+    "alerts": {
+      "title": "Larm",
+      "subtitle": "Aktiva och senaste inomhusklimat-larm",
+      "empty": "Inga aktiva larm",
+      "active": "Aktiva",
+      "resolved": "Åtgärdade"
+    },
+    "sensor_detail": {
+      "history": "Historik",
+      "period": {
+        "day": "Dygn",
+        "week": "Vecka",
+        "month": "Månad",
+        "year": "År"
+      },
+      "params": {
+        "temp": "Temperatur",
+        "hum": "Luftfuktighet",
+        "co2": "CO₂",
+        "voc": "VOC"
+      },
+      "last_update": "Senast uppdaterad",
+      "battery": "Batteri",
+      "signal": "Signal"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Konto, kund och inställningar",
+    "language": "Språk",
+    "account": "Konto",
+    "app_version": "Appversion"
+  },
+  "errors": {
+    "network": "Kunde inte ansluta. Kontrollera din internetanslutning.",
+    "unauthorized": "Du har loggats ut. Logga in igen.",
+    "forbidden": "Du har inte behörighet till detta.",
+    "server": "Ett serverfel inträffade. Försök igen senare.",
+    "unknown": "Ett oväntat fel inträffade."
+  }
+}

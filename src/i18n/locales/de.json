@@ -1,0 +1,129 @@
+{
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "search": "Suchen",
+    "loading": "Lädt...",
+    "error": "Fehler",
+    "retry": "Erneut versuchen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "previous": "Vorherige",
+    "yes": "Ja",
+    "no": "Nein",
+    "confirm": "Bestätigen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "add": "Hinzufügen",
+    "remove": "Entfernen",
+    "empty": "Keine Daten",
+    "refresh": "Aktualisieren",
+    "offline": "Offline — zwischengespeicherte Daten"
+  },
+  "layout": {
+    "modules": {
+      "indeklima": "Raumklima",
+      "preservation": "Konservierung",
+      "water": "Wasserdetektion",
+      "space": "Space Management",
+      "pushbuttons": "Tastenschalter",
+      "doors": "Schränke & Türen",
+      "usage": "Nutzung"
+    },
+    "tabs": {
+      "home": "Start",
+      "sensors": "Sensoren",
+      "alerts": "Alarme",
+      "profile": "Profil"
+    },
+    "coming_soon": "Demnächst verfügbar"
+  },
+  "auth": {
+    "sign_in": "Anmelden",
+    "sign_out": "Abmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "forgot_password": "Passwort vergessen?",
+    "sign_in_with_google": "Mit Google anmelden",
+    "invalid_credentials": "E-Mail oder Passwort ist falsch",
+    "email_required": "Bitte E-Mail eingeben",
+    "password_required": "Bitte Passwort eingeben",
+    "firebase_not_configured": "Firebase ist nicht konfiguriert — Schlüssel in app.json oder .env ergänzen",
+    "welcome": "Willkommen zurück",
+    "welcome_subtitle": "Melden Sie sich mit Ihrem RoomAlyzer-Konto an",
+    "mfa": {
+      "challenge_title": "Zwei-Faktor-Authentifizierung",
+      "challenge_subtitle": "Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.",
+      "code_label": "Bestätigungscode",
+      "verify": "Code bestätigen",
+      "error_init": "Zwei-Faktor-Authentifizierung konnte nicht gestartet werden. Bitte erneut versuchen.",
+      "error_invalid_code": "Ungültiger Code. Prüfen Sie Ihre Authenticator-App und versuchen Sie es erneut."
+    }
+  },
+  "tenant": {
+    "select_tenant": "Kunde wählen",
+    "select_tenant_subtitle": "Sie haben Zugriff auf mehrere Mandanten. Bitte auswählen.",
+    "active": "Aktiv",
+    "switch": "Mandant wechseln"
+  },
+  "home": {
+    "title": "Übersicht",
+    "subtitle": "Aktueller Status Ihrer Sensoren",
+    "choose_module": "Modul wählen",
+    "module_unavailable": "Dieses Modul ist in der Mobile-App noch nicht verfügbar",
+    "greeting": "Hallo {{name}}",
+    "modules_coming_soon": "Weitere Module kommen bald — Bewahrung, Wasser-Erkennung und Space Management"
+  },
+  "indeklima": {
+    "title": "Raumklima",
+    "subtitle": "Temperatur, Luftfeuchtigkeit und CO₂",
+    "sensors": {
+      "title": "Sensoren",
+      "subtitle": "Alle Raumklima-Sensoren in {{tenant}}",
+      "empty": "Keine Sensoren gefunden",
+      "empty_subtitle": "Für diesen Mandanten sind noch keine Raumklima-Sensoren hinterlegt.",
+      "search_placeholder": "Sensoren suchen...",
+      "all_locations": "Alle Standorte"
+    },
+    "alerts": {
+      "title": "Alarme",
+      "subtitle": "Aktive und aktuelle Raumklima-Alarme",
+      "empty": "Keine aktiven Alarme",
+      "active": "Aktiv",
+      "resolved": "Behoben"
+    },
+    "sensor_detail": {
+      "history": "Verlauf",
+      "period": {
+        "day": "Tag",
+        "week": "Woche",
+        "month": "Monat",
+        "year": "Jahr"
+      },
+      "params": {
+        "temp": "Temperatur",
+        "hum": "Luftfeuchtigkeit",
+        "co2": "CO₂",
+        "voc": "VOC"
+      },
+      "last_update": "Zuletzt aktualisiert",
+      "battery": "Batterie",
+      "signal": "Signal"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Konto, Mandant und Einstellungen",
+    "language": "Sprache",
+    "account": "Konto",
+    "app_version": "App-Version"
+  },
+  "errors": {
+    "network": "Keine Verbindung. Bitte Internetverbindung prüfen.",
+    "unauthorized": "Sie wurden abgemeldet. Bitte erneut anmelden.",
+    "forbidden": "Keine Berechtigung für diesen Bereich.",
+    "server": "Ein Serverfehler ist aufgetreten. Bitte später erneut versuchen.",
+    "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+  }
+}

@@ -1,0 +1,372 @@
+# ══════════════════════════════════════════════════════════════
+# RoomAlyzer Mobile — Cursor Rules
+# Expo + React Native + TypeScript · Multi-tenant · Multi-language · Offline-first
+# ══════════════════════════════════════════════════════════════
+
+## Project Overview
+
+RoomAlyzer Mobile is the native mobile companion to the RoomAlyzer 2.0 web
+app (`../roomalyzer20`). It talks to the SAME Hono API and uses the SAME
+Firebase Auth — nothing is re-implemented server-side.
+
+- **Primary users (MVP):** tenant end-users (employees at museums /
+  municipalities who monitor indoor climate).
+- **MVP module:** Indeklima only. Module-picker UI is present from day 1
+  with the other modules shown as "coming soon".
+- **Platforms:** iOS + Android via Expo. Web target is not a goal.
+
+### Stack
+- Expo SDK 54, React Native 0.81, React 19
+- TypeScript (strict, `noUncheckedIndexedAccess`)
+- **Expo Router** for file-based routing (`app/`)
+- **NativeWind v4** for Tailwind-syntax styling (config mirrors web)
+- **TanStack Query v5** + `persistQueryClient` for server state + offline cache
+- **react-native-mmkv** for fast key/value storage (with AsyncStorage
+  fallback for Expo Go — see `src/lib/storage.ts`)
+- **Zustand** for ephemeral UI state (active tenant, active module)
+- **Firebase Web SDK** for auth (email/password + Google via
+  `expo-auth-session`)
+- **expo-secure-store** for Firebase refresh-token persistence
+- **i18next + react-i18next + expo-localization** for i18n
+- **openapi-typescript** to generate typed client from
+  `https://v2.roomalyzer.com/api/docs/openapi.json`
+- **@expo/vector-icons** (MaterialCommunityIcons) behind an `<Icon>`
+  wrapper that maps web Bootstrap-Icons names to RN icons.
+
+### Relationship to the Web Repo
+The web repo at `../roomalyzer20` is the source of truth for:
+- The Hono API (the mobile app is a pure client).
+- The OpenAPI spec served at `/api/docs/openapi.json`.
+- All four locale files (`da.json`, `en.json`, `de.json`, `sv.json`) — we
+  copy the subset we need into `src/i18n/locales/` and keep keys aligned.
+- The dusty palette and design tokens (see "UI Design System" below).
+
+If you find yourself wanting to change server behavior, stop — that lives
+in the web repo, not here.
+
+---
+
+## Directory Structure
+
+```
+app/                   — Expo Router routes (file-based)
+  _layout.tsx          — Root layout: providers, font loading, splash
+  (auth)/              — Route group for unauthenticated screens
+    login.tsx
+  (tabs)/              — Bottom-tabs route group (authenticated)
+    _layout.tsx        — Tab bar
+    index.tsx          — Dashboard / module picker
+    sensors.tsx        — Sensor list
+    alerts.tsx         — Active alerts
+    profile.tsx        — Profile / tenant switch / logout
+  sensor/
+    [id].tsx           — Sensor detail + graph
+src/
+  components/          — Shared design-system primitives
+  features/
+    indeklima/         — Indeklima-specific screens, hooks, graphs
+  hooks/               — Cross-cutting React hooks
+  i18n/
+    index.ts           — i18next setup
+    locales/           — da.json, en.json, de.json, sv.json
+  lib/                 — Non-React utilities (storage, env, requestId, …)
+  services/
+    api/               — Generated OpenAPI types + apiClient.ts
+    auth/              — Firebase wrappers + AuthProvider
+  stores/              — Zustand stores (tenant, module, …)
+  theme/               — colors.ts, fonts.ts, typography.ts, spacing.ts
+assets/                — icon, splash, adaptive-icon
+```
+
+### Mapping to Web Concepts
+| Web (`../roomalyzer20`) | Mobile (here) |
+|-------------------------|---------------|
+| `src/pages/<module>/*.jsx` | `src/features/<module>/*.tsx` + routes in `app/` |
+| `src/contexts/AuthContext.jsx` | `src/services/auth/AuthProvider.tsx` |
+| `src/services/apiClient.js` | `src/services/api/client.ts` (typed) |
+| `src/services/firebase.js` | `src/services/auth/firebase.ts` |
+| `src/components/forms/*` | `src/components/Form*.tsx` |
+| `src/locales/*.json` | `src/i18n/locales/*.json` |
+| `sessionStorage.getItem('roomalyzer_*')` | `storage.getString('roomalyzer_*')` via `src/lib/storage.ts` |
+
+---
+
+## Internationalization (i18n)
+
+### Four languages from day one
+- **da** — Dansk (primary)
+- **en** — English
+- **de** — Deutsch
+- **sv** — Svenska
+
+Same rules as web:
+- NEVER hardcode strings in JSX.
+- Every new UI string goes into ALL FOUR locale files simultaneously.
+- Reuse `common.*` keys where they exist on web.
+- Use nested dot-notation keys (`indeklima.sensors.empty_state`, not
+  `emptySensorsState`).
+
+### Usage
+```tsx
+import { useTranslation } from 'react-i18next';
+
+const { t } = useTranslation();
+return <Text>{t('common.loading')}</Text>;
+```
+
+---
+
+## Authentication
+
+### Firebase JWT everywhere
+- Login via `signInWithEmailAndPassword` (Firebase Web SDK). Google via
+  `expo-auth-session`. No native Firebase SDK — keeps Expo Go compatibility.
+- Token is fetched via `getIdToken()` and attached to every API request as
+  `Authorization: Bearer <token>`.
+- On 401, the API client forces a token refresh and retries once (same
+  pattern as `apiClient.js` on web).
+- Tenant is sent via `X-Tenant-Id` header — the backend validates against
+  `user_tenants` before trusting it. Never trusted blindly.
+
+### Sensitive data
+- Firebase auto-persists the refresh token in SecureStore (keychain on iOS,
+  EncryptedSharedPreferences on Android) via the React Native Firebase
+  persistence adapter we configure in `src/services/auth/firebase.ts`.
+- MMKV is NOT used for tokens. It is unencrypted by default.
+- On logout, clear the full query cache + all `roomalyzer_*` storage keys
+  + sign out of Firebase. Fire-and-forget each step.
+
+### MFA / 2FA
+- Tenants can require 2FA (`tenant_requires_2fa`). If the backend returns
+  the enrollment-required flag, block app access until TOTP is set up.
+- Re-use the web's MFA flow conceptually: show QR / secret, verify 6-digit
+  code, enroll.
+
+---
+
+## API & Data Layer
+
+### Hono API — the single source of truth
+The mobile app NEVER talks directly to Legacy. It always goes through the
+Hono API at `env.apiBaseUrl` (default `https://v2.roomalyzer.com`). The
+same "Strict Data Boundary" rule from the web repo applies:
+
+- If an endpoint is broken on the server, STOP and report to the user.
+  Never shim missing data client-side. Never persist Legacy-owned data in
+  local storage as a "bridge". This is a hard rule — violating it creates
+  shadow state and hides real bugs.
+
+### Generated OpenAPI client
+```
+npm run gen:api        # fetches prod spec and regenerates src/services/api/schema.ts
+npm run gen:api:local  # uses http://localhost:3001 (pair with web repo dev server)
+```
+
+- ALWAYS go through the typed client (`src/services/api/client.ts`).
+- No ad-hoc `fetch()` calls in components or features.
+- Commit the generated `schema.ts` so API changes appear as diffs.
+- When adjusting the server's Zod schemas, regenerate and review the diff
+  before pushing.
+
+### TanStack Query
+- Every read goes through a `useQuery` hook in `src/features/*/hooks.ts`.
+- Every write goes through a `useMutation` — with `onSuccess` that invalidates
+  the relevant query keys.
+- Query keys follow a hierarchical pattern: `['indeklima', 'sensors', { tenantId }]`
+  so tenant-switching can bulk-invalidate with one call.
+
+### Offline / cache strategy — tiered
+The "read all historical data offline" goal is satisfied by this tiered
+cache (stored via `persistQueryClient` + MMKV/AsyncStorage):
+
+| Tier | Scope | Lifetime |
+|------|-------|----------|
+| **Snapshot** | Latest reading of every sensor the user has access to | 24 h `staleTime`, GC on tenant switch |
+| **Raw** | 5-min resolution history, last 7 days, for sensors the user has opened | 7 days, LRU-evicted at 50 MB cap |
+| **Downsampled** | Hour/day resolution, last 30 days / 1 year | 30 days |
+| **On-demand** | Older than 1 year | Not cached, fetched online only |
+
+Invalidation on tenant switch: `queryClient.clear()` + re-hydrate from persister.
+
+### Location restrictions
+Users can be restricted to specific locations (`allowed_locations`). A
+`useLocationFilter` hook (in `src/hooks/`) filters sensors, trees, and
+flat lists by `location` field. Apply it on EVERY page that displays
+location-grouped data — exactly like the web app.
+
+---
+
+## UI Design System
+
+### Color tokens — MUST use Tailwind classes or `colors` from `src/theme`
+See `tailwind.config.js` and `src/theme/colors.ts`. Brand: `#5D7C8F`,
+`#3498DB`, `#2C3E50`. Status: `#6c9e83`, `#f0ad4e`, `#d65b5b`. Background:
+`#F4F6F9`.
+
+### Dusty palette — MANDATORY
+Whenever any UI element needs a color (chart series, badge, scenario tag,
+module accent), pick from the dusty palette in `src/theme/colors.ts`:
+```
+#5D7C8F  dusty blue-gray       (brand)
+#6c9e83  dusty sage green      (status-good)
+#f0ad4e  dusty amber / gold    (status-warn)
+#d65b5b  dusty red             (status-bad — alarms only)
+#2C3E50  dark navy blue        (brand-dark)
+#7a8c7e  muted sage
+#8e7c5d  warm taupe
+#5b8fa1  steel teal
+```
+NEVER use saturated colors like `#e67e22`, `#2ecc71`, `#e74c3c` unless the
+user explicitly requests it. `#d65b5b` is reserved for serious states —
+never decorative.
+
+### Typography
+Inter 300/400/500/600/700 loaded via `@expo-google-fonts/inter` in
+`app/_layout.tsx`. Use the `type.*` styles from `src/theme/typography.ts`
+(`pageTitle`, `sectionLabel`, `body`, `caption`, `kpiValue`, ...) — never
+inline fontSize/fontFamily.
+
+### Icons
+Use the `<Icon name="..." />` wrapper in `src/components/Icon.tsx`. Pass
+names as Bootstrap Icons would (e.g. `thermometer-half`, `droplet`,
+`bell`). The wrapper maps to the closest MaterialCommunityIcons glyph.
+
+NEVER import from `@expo/vector-icons` directly in features — always go
+through `<Icon>` so we keep one mapping table.
+
+### Primitives (required building blocks)
+All screens MUST be built on these primitives — never hand-roll the
+equivalent markup:
+
+- `<PageHeading icon="..." title="..." subtitle="..." />` — top of every screen
+- `<SectionCard title="..." icon="...">` — rounded card with optional header
+- `<SectionLabel>` — tiny uppercase group label
+- `<FormField label="..." error="...">` + `<FormInput>` / `<FormSelect>`
+  / `<FormSearch>` / `<FormPassword>` / `<FormToggle>`
+- `<SegmentedControl options={...} value={...} onChange={...} />` — pick one of 2-5
+- `<SensorPicker>` — single sensor select (flat list with hierarchy)
+- `<LoadingIndicator>` — full-screen or inline loading
+- `<ErrorBanner>` — dismissible page-level error / warning
+- `<ConfirmModal>` — bottom-sheet for destructive / dangerous confirmations
+- `<Button variant="primary|ghost|danger">` — all CTA
+
+If a needed variant is missing, extend the primitive — do NOT fork inside
+a feature.
+
+### Mobile-specific rules
+- Respect the safe area on every screen (`SafeAreaView` or
+  `useSafeAreaInsets`).
+- Use `KeyboardAvoidingView` around forms.
+- Every list supports pull-to-refresh via `RefreshControl` → TanStack
+  Query's `refetch()`.
+- Destructive actions use `Haptics.notificationAsync(Error)` before firing.
+- Minimum touch target: 44×44 px (iOS HIG / WCAG). Use `TOUCH_TARGET`
+  from `src/theme/spacing.ts`.
+- Prefer bottom sheets over centered modals for single-purpose flows.
+
+---
+
+## State Management
+
+- **Server state** → TanStack Query. Nothing else.
+- **User prefs / aktivt tenant / aktivt modul** → Zustand store in
+  `src/stores/`, persisted via `zustand/middleware/persist` with the
+  storage wrapper.
+- **Ephemeral UI state** → `useState` / `useReducer` in components.
+- **NEVER** reach into `storage` directly from a component — go through
+  a store or a hook.
+
+---
+
+## Multi-Tenant Rules
+
+- Active tenant lives in `tenantStore` (Zustand), persisted under
+  `roomalyzer_active_tenant`.
+- Every API call attaches `X-Tenant-Id`. The backend authoritatively
+  validates membership — the mobile app never trusts itself on this.
+- Tenant switch flow: set new tenant → `queryClient.clear()` →
+  re-hydrate from persister. Do NOT keep previous tenant's cached data
+  reachable.
+
+---
+
+## Testing Against External APIs — Safety Rules
+
+When hitting the Hono or Legacy API during development:
+- NEVER delete, update, or modify existing data as part of automated
+  tests.
+- Only delete data you created in the same session, and use clearly
+  throwaway names (`"TEST — delete me"`).
+- Prefer GET over POST/PUT/DELETE unless the specific behavior is what
+  you're testing.
+- These rules apply to the agent, not the user acting through the UI.
+
+---
+
+## Legacy API Failures — Report, Don't Workaround
+
+This rule is copied verbatim from the web repo and applies identically.
+
+If a Legacy API endpoint does not respond as expected:
+1. Stop immediately.
+2. Tell the user: which endpoint, what it returned, what was expected.
+3. Ask how to proceed.
+
+NEVER:
+- Store Legacy data in our own local storage as a "bridge".
+- Create mock overrides that silently replace broken endpoints.
+- Mention the problem as a footnote and build a workaround.
+
+The fix belongs on the Legacy side.
+
+---
+
+## Production-Quality Code
+
+- Functional components only.
+- Handle loading / error / empty states on every screen. Never leave
+  the user staring at a blank screen.
+- Every async call wrapped in try/catch (or `useQuery` error surface).
+- Never trust client input; validate before sending to the API.
+- No secrets in the client bundle. Values go in `app.json.extra` or
+  `EXPO_PUBLIC_*` env vars (publicly inspectable, so only public keys).
+
+---
+
+## File Naming
+
+- Routes: lowercase with brackets (`app/sensor/[id].tsx`)
+- Components: PascalCase (`PageHeading.tsx`, `SensorPicker.tsx`)
+- Hooks: `use*` camelCase (`useLocationFilter.ts`, `useSensors.ts`)
+- Services / lib: camelCase (`apiClient.ts`, `storage.ts`)
+- Locales: lowercase json (`da.json`)
+
+### Imports
+```tsx
+// 1. React & libraries
+import { useState } from 'react';
+import { View, Text } from 'react-native';
+
+// 2. Absolute @/ imports (src/)
+import { colors } from '@/theme';
+import { useSensors } from '@/features/indeklima/hooks';
+
+// 3. Relative imports (same feature)
+import SensorRow from './SensorRow';
+```
+
+---
+
+## Consistency Checklist (every new screen)
+
+- [ ] All text through `t()` with keys in all 4 locale files
+- [ ] Uses `<PageHeading>` — no hand-rolled title
+- [ ] Uses theme primitives (colors, typography, spacing)
+- [ ] Uses `<Icon>` — no direct `@expo/vector-icons` import
+- [ ] Loading / error / empty states handled
+- [ ] Pull-to-refresh on any list
+- [ ] Touch targets >= 44px
+- [ ] Works in both iOS + Android simulators (visual parity)
+- [ ] Location-based data filtered through `useLocationFilter`
+- [ ] API access via generated typed client — no ad-hoc fetch
+- [ ] Tenant-aware (scoped queries via `X-Tenant-Id`)

@@ -1,0 +1,129 @@
+{
+  "common": {
+    "save": "Gem",
+    "cancel": "Annuller",
+    "close": "Luk",
+    "search": "Søg",
+    "loading": "Indlæser...",
+    "error": "Fejl",
+    "retry": "Prøv igen",
+    "back": "Tilbage",
+    "next": "Næste",
+    "previous": "Forrige",
+    "yes": "Ja",
+    "no": "Nej",
+    "confirm": "Bekræft",
+    "delete": "Slet",
+    "edit": "Rediger",
+    "add": "Tilføj",
+    "remove": "Fjern",
+    "empty": "Ingen data",
+    "refresh": "Opdater",
+    "offline": "Offline — viser cachede data"
+  },
+  "layout": {
+    "modules": {
+      "indeklima": "Indeklima",
+      "preservation": "Bevaring",
+      "water": "Vanddetektering",
+      "space": "Space Management",
+      "pushbuttons": "Trykknapper",
+      "doors": "Skabe & Døre",
+      "usage": "Anvendelse"
+    },
+    "tabs": {
+      "home": "Hjem",
+      "sensors": "Sensorer",
+      "alerts": "Alarmer",
+      "profile": "Profil"
+    },
+    "coming_soon": "Kommer snart"
+  },
+  "auth": {
+    "sign_in": "Log ind",
+    "sign_out": "Log ud",
+    "email": "E-mail",
+    "password": "Adgangskode",
+    "forgot_password": "Glemt adgangskode?",
+    "sign_in_with_google": "Log ind med Google",
+    "invalid_credentials": "Forkert e-mail eller adgangskode",
+    "email_required": "Indtast e-mail",
+    "password_required": "Indtast adgangskode",
+    "firebase_not_configured": "Firebase er ikke konfigureret for denne app — tilføj Firebase-nøgler i app.json eller .env",
+    "welcome": "Velkommen tilbage",
+    "welcome_subtitle": "Log ind med din RoomAlyzer-konto",
+    "mfa": {
+      "challenge_title": "To-faktor-godkendelse",
+      "challenge_subtitle": "Indtast den 6-cifrede kode fra din autentificeringsapp.",
+      "code_label": "Bekræftelseskode",
+      "verify": "Bekræft kode",
+      "error_init": "Kunne ikke starte 2-faktor-godkendelse. Prøv igen.",
+      "error_invalid_code": "Ugyldig kode. Tjek din autentificeringsapp og prøv igen."
+    }
+  },
+  "tenant": {
+    "select_tenant": "Vælg kunde",
+    "select_tenant_subtitle": "Du har adgang til flere tenants. Vælg hvilken du vil bruge nu.",
+    "active": "Aktiv",
+    "switch": "Skift tenant"
+  },
+  "home": {
+    "title": "Oversigt",
+    "subtitle": "Seneste status for dine sensorer",
+    "choose_module": "Vælg modul",
+    "module_unavailable": "Dette modul er ikke tilgængeligt i mobil-appen endnu",
+    "greeting": "Hej {{name}}",
+    "modules_coming_soon": "Flere moduler er på vej — Bevaring, Vanddetektering og Space Management"
+  },
+  "indeklima": {
+    "title": "Indeklima",
+    "subtitle": "Temperatur, luftfugtighed og CO₂",
+    "sensors": {
+      "title": "Sensorer",
+      "subtitle": "Alle indeklima-sensorer i {{tenant}}",
+      "empty": "Ingen sensorer fundet",
+      "empty_subtitle": "Der er endnu ikke tilknyttet indeklima-sensorer til denne tenant.",
+      "search_placeholder": "Søg i sensorer...",
+      "all_locations": "Alle lokationer"
+    },
+    "alerts": {
+      "title": "Alarmer",
+      "subtitle": "Aktive og seneste indeklima-alarmer",
+      "empty": "Ingen aktive alarmer",
+      "active": "Aktive",
+      "resolved": "Løste"
+    },
+    "sensor_detail": {
+      "history": "Historik",
+      "period": {
+        "day": "Døgn",
+        "week": "Uge",
+        "month": "Måned",
+        "year": "År"
+      },
+      "params": {
+        "temp": "Temperatur",
+        "hum": "Luftfugtighed",
+        "co2": "CO₂",
+        "voc": "VOC"
+      },
+      "last_update": "Sidst opdateret",
+      "battery": "Batteri",
+      "signal": "Signal"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Konto, tenant og indstillinger",
+    "language": "Sprog",
+    "account": "Konto",
+    "app_version": "App-version"
+  },
+  "errors": {
+    "network": "Kunne ikke oprette forbindelse. Tjek din internetforbindelse.",
+    "unauthorized": "Du er logget ud. Log venligst ind igen.",
+    "forbidden": "Du har ikke adgang til denne funktion.",
+    "server": "Der opstod en serverfejl. Prøv igen senere.",
+    "unknown": "Der opstod en uventet fejl."
+  }
+}
