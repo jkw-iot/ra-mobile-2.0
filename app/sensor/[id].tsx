@@ -1,8 +1,12 @@
 // ══════════════════════════════════════════════════════════════
 // Sensor detail — premium layout.
 //
-//  - Navy hero with a prominent "Tilbage" back-button, the
-//    sensor's last-reading timestamp, and battery/signal chips.
+//  - Navy hero with a "Tilbage" pill back-button on the left and
+//    the sensor name immediately to its right (one row), then the
+//    last-reading timestamp on the second row with battery and
+//    coverage as tappable icon-only chips on the far right. Tap a
+//    chip to surface a short native explainer (Alert) describing
+//    what the current level means.
 //  - KPI tiles only rendered for parameters the sensor actually
 //    reports. Tap a tile to plot that parameter in the graph.
 //  - Chart plots the selected param with threshold-based
@@ -21,6 +25,7 @@ import {
   RefreshControl,
   StatusBar,
   Platform,
+  Alert,
 } from 'react-native';
 import { useMemo, useState, useEffect } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -37,7 +42,6 @@ import {
   SegmentedControl,
   LoadingIndicator,
   Icon,
-  StatusDot,
   ErrorState,
   HeroBackButton,
   KpiTile,
@@ -53,6 +57,7 @@ import {
   sensorSupports,
 } from '@/features/indeklima/hooks';
 import { LineChart } from '@/features/indeklima/LineChart';
+import { PresenceChart } from '@/features/indeklima/PresenceChart';
 import {
   normalizeThresholds,
   buildZonesForParam,
@@ -63,26 +68,19 @@ import {
 import {
   historyToPoints,
   rangeForAnchor,
+  rangeToTimestamps,
   paramColor,
   unitForParam,
   ymd,
   stepAnchor,
   formatRangeLabel,
 } from '@/features/indeklima/chartHelpers';
-import type { StatusTone } from '@/theme';
-import type { Sensor } from '@/services/api';
 import { haptic } from '@/lib/haptics';
 import { useDetailPrefsStore, type DetailPeriod } from '@/stores/detailPrefsStore';
 
 type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'pir';
 
 const MONTHS_DA = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
-
-function toneFromStatus(c: Sensor['statusColor']): StatusTone {
-  if (c === 'green') return 'good';
-  if (c === 'red') return 'bad';
-  return 'neutral';
-}
 
 function isPresent(v: number | string | undefined): v is number | string {
   if (v == null || v === '-' || v === '') return false;
@@ -138,12 +136,13 @@ function batteryLevel(raw: number): 0 | 1 | 2 | 3 {
   return 3;
 }
 
-const BATTERY_META = {
-  0: { icon: 'battery-empty', tone: colors.statusBad,   label: 'Lavt' },
-  1: { icon: 'battery-low',   tone: colors.statusWarn,  label: 'Lavt' },
-  2: { icon: 'battery-medium', tone: colors.statusGood, label: 'Ok' },
-  3: { icon: 'battery-high',   tone: colors.statusGood, label: 'Godt' },
-} as const;
+type BatteryKey = 'empty' | 'low' | 'medium' | 'high';
+const BATTERY_META: Record<0 | 1 | 2 | 3, { icon: string; tone: string; key: BatteryKey }> = {
+  0: { icon: 'battery-empty',  tone: colors.statusBad,  key: 'empty' },
+  1: { icon: 'battery-low',    tone: colors.statusWarn, key: 'low' },
+  2: { icon: 'battery-medium', tone: colors.statusGood, key: 'medium' },
+  3: { icon: 'battery-high',   tone: colors.statusGood, key: 'high' },
+};
 
 function signalLevel(raw: number): 0 | 1 | 2 | 3 | 4 {
   if (!Number.isFinite(raw) || raw === 0) return 0;
@@ -154,42 +153,55 @@ function signalLevel(raw: number): 0 | 1 | 2 | 3 | 4 {
   return 1;
 }
 
-function signalMeta(level: 0 | 1 | 2 | 3 | 4, t: (k: string) => string) {
-  const cfg: Record<number, { icon: string; tone: string; label: string }> = {
-    4: { icon: 'signal-4', tone: colors.statusGood, label: t('indeklima.sensor_detail.coverage.excellent') },
-    3: { icon: 'signal-3', tone: colors.statusGood, label: t('indeklima.sensor_detail.coverage.good') },
-    2: { icon: 'signal-2', tone: colors.statusWarn, label: t('indeklima.sensor_detail.coverage.medium') },
-    1: { icon: 'signal-1', tone: colors.statusBad,  label: t('indeklima.sensor_detail.coverage.poor') },
-    0: { icon: 'signal-0', tone: colors.gray[400],  label: t('indeklima.sensor_detail.coverage.none') },
-  };
-  return cfg[level] ?? cfg[0]!;
-}
+type CoverageKey = 'excellent' | 'good' | 'medium' | 'poor' | 'none';
+const COVERAGE_META: Record<0 | 1 | 2 | 3 | 4, { icon: string; tone: string; key: CoverageKey }> = {
+  4: { icon: 'signal-4', tone: colors.statusGood, key: 'excellent' },
+  3: { icon: 'signal-3', tone: colors.statusGood, key: 'good' },
+  2: { icon: 'signal-2', tone: colors.statusWarn, key: 'medium' },
+  1: { icon: 'signal-1', tone: colors.statusBad,  key: 'poor' },
+  0: { icon: 'signal-0', tone: colors.gray[400],  key: 'none' },
+};
 
-// ── Meta chip ──────────────────────────────────────────────
-function MetaChip({ icon, tone, label }: { icon: string; tone: string; label: string }) {
+// ── Meta icon button ───────────────────────────────────────
+// Compact icon-only chip in the navy hero. Tapping surfaces a
+// short native explainer (Alert) so end users can learn what a
+// "good" / "low" / "no signal" reading actually means without
+// us needing to inline a tooltip on the dark background.
+function MetaIconButton({
+  icon,
+  tone,
+  onPress,
+  accessibilityLabel,
+}: {
+  icon: string;
+  tone: string;
+  onPress: () => void;
+  accessibilityLabel: string;
+}) {
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: radius.full,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+    <Pressable
+      onPress={() => {
+        haptic.light();
+        onPress();
       }}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
-      <Icon name={icon} color={tone} size={14} />
-      <Text
+      <View
         style={{
-          color: colors.white,
-          fontSize: 12,
-          fontWeight: '600',
+          width: 30,
+          height: 30,
+          borderRadius: radius.full,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(255,255,255,0.1)',
         }}
       >
-        {label}
-      </Text>
-    </View>
+        <Icon name={icon} color={tone} size={16} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -198,7 +210,17 @@ export default function SensorDetailScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id: idParam } = useLocalSearchParams<{ id: string }>();
+  const { id: idParam, param: paramParam } = useLocalSearchParams<{
+    id: string;
+    /**
+     * Optional param hint passed by the sensor list when the user
+     * tapped a card while filtering on a specific metric — see
+     * `app/(tabs)/sensors.tsx`. We use it as the initial selection
+     * if the sensor actually reports that param, falling back to
+     * its first available param otherwise (handled below).
+     */
+    param?: string;
+  }>();
   // Keep the id as-is (string or numeric). `Number(idParam)` would
   // mangle UUID-style ids that some newer backends return, leading
   // to `NaN` lookups downstream — see the "Fejl" bug on v2 tenants.
@@ -214,8 +236,19 @@ export default function SensorDetailScreen() {
   const lastPeriod = useDetailPrefsStore((s) => s.lastPeriod);
   const setLastPeriod = useDetailPrefsStore((s) => s.setLastPeriod);
 
+  // Hint coming from the list screen, e.g. ?param=hum. Validated
+  // against the Param union here so a malformed deep-link can't
+  // poison `param` state.
+  const initialParamHint = useMemo<Param | null>(() => {
+    const v = typeof paramParam === 'string' ? paramParam : null;
+    if (v === 'temp' || v === 'hum' || v === 'co2' || v === 'voc' || v === 'pir') {
+      return v;
+    }
+    return null;
+  }, [paramParam]);
+
   const [period, setPeriodLocal] = useState<DetailPeriod>(lastPeriod);
-  const [param, setParam] = useState<Param | null>(null);
+  const [param, setParam] = useState<Param | null>(initialParamHint);
   const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
 
   // Keep the Zustand store in sync with current selection.
@@ -242,6 +275,14 @@ export default function SensorDetailScreen() {
   const today = useMemo(() => ymd(new Date()), []);
   const dateRange = useMemo(() => rangeForAnchor(period, anchor), [period, anchor]);
   const { useRaw } = dateRange;
+
+  // Inclusive ms bounds of the selected period. The presence
+  // chart uses these to span the whole window even when readings
+  // only fall inside part of it (e.g. sensor offline overnight).
+  const presenceBounds = useMemo(
+    () => rangeToTimestamps(dateRange.from, dateRange.to),
+    [dateRange.from, dateRange.to],
+  );
 
   const raw = useSensorHistoryRaw(useRaw ? id : null, dateRange.from);
   const hourly = useSensorHistoryHourly(!useRaw ? id : null, dateRange.from, dateRange.to);
@@ -333,11 +374,25 @@ export default function SensorDetailScreen() {
     );
   }
 
-  const tone = toneFromStatus(sensor.statusColor);
   const bat = batteryLevel(Number(sensor.battery));
   const batMeta = BATTERY_META[bat];
   const sig = signalLevel(Number(sensor.coverage));
-  const sigMeta = signalMeta(sig, t);
+  const sigMeta = COVERAGE_META[sig];
+  const batLabel = t(`indeklima.sensor_detail.battery.level.${batMeta.key}`);
+  const sigLabel = t(`indeklima.sensor_detail.coverage.${sigMeta.key}`);
+
+  const showBatteryInfo = () => {
+    Alert.alert(
+      `${t('indeklima.sensor_detail.battery.label')}: ${batLabel}`,
+      t(`indeklima.sensor_detail.battery.explain.${batMeta.key}`),
+    );
+  };
+  const showCoverageInfo = () => {
+    Alert.alert(
+      `${t('indeklima.sensor_detail.coverage.label')}: ${sigLabel}`,
+      t(`indeklima.sensor_detail.coverage.explain.${sigMeta.key}`),
+    );
+  };
 
   const unitFor = (p: Param) => unitForParam(sensor, p);
 
@@ -349,81 +404,85 @@ export default function SensorDetailScreen() {
       {Platform.OS === 'ios' ? <StatusBar barStyle="light-content" /> : null}
 
       {/* Navy hero */}
-      <View style={{ backgroundColor: colors.navy, paddingTop: insets.top + spacing.xs, paddingBottom: spacing.lg }}>
+      <View
+        style={{
+          backgroundColor: colors.navy,
+          paddingTop: insets.top + spacing.xs,
+          paddingBottom: spacing.lg,
+        }}
+      >
+        {/* Row 1: back button + sensor name */}
         <View
           style={{
             paddingHorizontal: spacing.md,
             paddingTop: spacing.sm,
             flexDirection: 'row',
-            alignItems: 'flex-start',
+            alignItems: 'center',
+            gap: spacing.sm,
           }}
         >
           <HeroBackButton onPress={() => router.back()} label={t('common.back')} />
-          <View style={{ flex: 1 }} />
-          <View
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(255,255,255,0.08)',
-              marginTop: 4,
-            }}
-          >
-            <StatusDot tone={tone} size={10} />
-          </View>
-        </View>
-
-        <View style={{ paddingHorizontal: spacing.md, marginTop: spacing.md, gap: 2 }}>
           <Text
             style={{
+              flex: 1,
               color: colors.white,
-              fontSize: 24,
+              fontSize: 19,
               fontWeight: '700',
-              letterSpacing: -0.4,
+              letterSpacing: -0.3,
+              textAlign: 'right',
             }}
             numberOfLines={2}
           >
             {sensor.name}
           </Text>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              marginTop: spacing.sm,
-            }}
-          >
-            <Icon name="clock" color="rgba(255,255,255,0.7)" size={12} />
-            <Text
-              style={{
-                color: 'rgba(255,255,255,0.9)',
-                fontSize: 12,
-                fontWeight: '600',
-              }}
-              numberOfLines={1}
-            >
-              {t('indeklima.sensor_detail.measurement_at', { when: fullMeasurementTime })}
-            </Text>
-          </View>
         </View>
 
+        {/* Row 2: measurement time (left) + battery / coverage icons (right) */}
         <View
           style={{
             flexDirection: 'row',
-            gap: spacing.xs,
+            alignItems: 'center',
+            gap: spacing.sm,
             paddingHorizontal: spacing.md,
             marginTop: spacing.md,
           }}
         >
-          <MetaChip icon={batMeta.icon} tone={batMeta.tone} label={batMeta.label} />
-          <MetaChip icon={sigMeta.icon} tone={sigMeta.tone} label={sigMeta.label} />
+          <Icon name="clock" color="rgba(255,255,255,0.7)" size={12} />
+          <Text
+            style={{
+              flex: 1,
+              color: 'rgba(255,255,255,0.9)',
+              fontSize: 12,
+              fontWeight: '600',
+            }}
+            numberOfLines={1}
+          >
+            {t('indeklima.sensor_detail.measurement_at', { when: fullMeasurementTime })}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+            <MetaIconButton
+              icon={batMeta.icon}
+              tone={batMeta.tone}
+              onPress={showBatteryInfo}
+              accessibilityLabel={`${t('indeklima.sensor_detail.battery.label')}: ${batLabel}`}
+            />
+            <MetaIconButton
+              icon={sigMeta.icon}
+              tone={sigMeta.tone}
+              onPress={showCoverageInfo}
+              accessibilityLabel={`${t('indeklima.sensor_detail.coverage.label')}: ${sigLabel}`}
+            />
+          </View>
         </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl + 40 }}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.xs,
+          paddingTop: spacing.md,
+          paddingBottom: spacing.xl + 40,
+          gap: spacing.md,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching || raw.isRefetching || hourly.isRefetching}
@@ -490,6 +549,7 @@ export default function SensorDetailScreen() {
           <SectionCard
             title={t('indeklima.sensor_detail.history')}
             icon="graph-up"
+            padding={spacing.sm}
             trailing={
               <Pressable
                 onPress={() => {
@@ -506,14 +566,15 @@ export default function SensorDetailScreen() {
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={t('indeklima.sensor_detail.open_fullscreen')}
-                hitSlop={8}
+                hitSlop={12}
                 style={({ pressed }) => ({
                   opacity: pressed ? 0.7 : 1,
-                  padding: 4,
-                  marginRight: -4,
+                  padding: 8,
+                  marginRight: -8,
+                  marginVertical: -4,
                 })}
               >
-                <Icon name="fullscreen" color={colors.gray[500]} size={18} />
+                <Icon name="fullscreen" color={colors.gray[500]} size={30} />
               </Pressable>
             }
           >
@@ -581,6 +642,35 @@ export default function SensorDetailScreen() {
 
               {historyLoading ? (
                 <LoadingIndicator inline />
+              ) : activeParam === 'pir' ? (
+                points.length < 1 ? (
+                  <View
+                    style={{
+                      padding: spacing.lg,
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <Icon name="motion-sensor" color={colors.gray[300]} size={24} />
+                    <Text style={[type.caption, { textAlign: 'center' }]}>
+                      {historyError
+                        ? (historyError as Error)?.message ?? t('errors.unknown')
+                        : t('indeklima.sensor_detail.no_history')}
+                    </Text>
+                  </View>
+                ) : (
+                  <PresenceChart
+                    // Width matches the LineChart calc below — same
+                    // ScrollView (spacing.xs × 2) + SectionCard
+                    // (spacing.sm × 2) inset.
+                    points={points}
+                    width={width - spacing.xs * 2 - spacing.sm * 2}
+                    fromTs={presenceBounds.fromTs}
+                    toTs={presenceBounds.toTs}
+                    occupiedLabel={t('indeklima.sensors.presence.occupied')}
+                    vacantLabel={t('indeklima.sensors.presence.vacant')}
+                  />
+                )
               ) : points.length < 2 ? (
                 <View
                   style={{
@@ -598,8 +688,14 @@ export default function SensorDetailScreen() {
                 </View>
               ) : (
                 <LineChart
+                  // Inner chart width = screen width
+                  //   minus ScrollView paddingHorizontal (spacing.xs × 2)
+                  //   minus SectionCard padding (spacing.sm × 2).
+                  // Mirror this any time those paddings change so the
+                  // chart still fills the card without overflow or
+                  // dead space on the right.
                   points={points}
-                  width={width - spacing.md * 2 - spacing.md * 2}
+                  width={width - spacing.xs * 2 - spacing.sm * 2}
                   unit={unitFor(activeParam)}
                   stroke={paramColor(activeParam)}
                   zones={chartZones}
@@ -634,9 +730,9 @@ function ChartNavButton({
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
       style={({ pressed }) => ({
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: disabled
@@ -649,7 +745,7 @@ function ChartNavButton({
         opacity: disabled ? 0.5 : 1,
       })}
     >
-      <Icon name={icon} color={disabled ? colors.gray[300] : colors.brandDark} size={18} />
+      <Icon name={icon} color={disabled ? colors.gray[300] : colors.brandDark} size={24} />
     </Pressable>
   );
 }

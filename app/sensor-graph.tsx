@@ -23,6 +23,7 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { isAfter, isSameDay, startOfDay } from 'date-fns';
@@ -36,9 +37,11 @@ import {
   useSensorThresholds,
 } from '@/features/indeklima/hooks';
 import { LineChart } from '@/features/indeklima/LineChart';
+import { PresenceChart } from '@/features/indeklima/PresenceChart';
 import {
   historyToPoints,
   rangeForAnchor,
+  rangeToTimestamps,
   paramColor,
   unitForParam,
   stepAnchor,
@@ -110,12 +113,17 @@ export default function SensorGraphFullscreen() {
   }, [canGoNext, period]);
 
   const { width: screenW, height: screenH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const sensorQuery = useSensor(id);
   const thresholdsQuery = useSensorThresholds(id);
 
   const dateRange = useMemo(() => rangeForAnchor(period, anchor), [period, anchor]);
   const useRaw = dateRange.useRaw;
+  const presenceBounds = useMemo(
+    () => rangeToTimestamps(dateRange.from, dateRange.to),
+    [dateRange.from, dateRange.to],
+  );
   const rawHistory = useSensorHistoryRaw(useRaw ? id : null, dateRange.from);
   const hourlyHistory = useSensorHistoryHourly(
     !useRaw ? id : null,
@@ -150,19 +158,39 @@ export default function SensorGraphFullscreen() {
     router.back();
   };
 
-  // Rotated container: pre-rotation it's (screenH × screenW). After
-  // a 90° CCW rotation the rect visually covers (screenW × screenH)
-  // — i.e. the full screen. Centering offsets keep the rect aligned
-  // with the screen viewport.
-  const rotatedLeft = (screenW - screenH) / 2;
-  const rotatedTop = (screenH - screenW) / 2;
+  // Rounded display corners (iPhone 15/16 Pro etc.) clip text and
+  // buttons rendered right at the screen edge — `useSafeAreaInsets`
+  // only covers the Dynamic Island / home indicator, not the corner
+  // radius. CORNER_PAD is the additional clearance we keep from
+  // every edge so labels in the corners (e.g. the sensor name in
+  // the bottom-left of the rotated layout) stay fully visible.
+  const CORNER_PAD = 16;
+
+  // The visible rect we want the rotated content to occupy in real
+  // screen coordinates: the full window minus iOS safe-area insets
+  // and our extra corner clearance on all four sides.
+  const vx = insets.left + CORNER_PAD;
+  const vy = insets.top + CORNER_PAD;
+  const vw = screenW - insets.left - insets.right - CORNER_PAD * 2;
+  const vh = screenH - insets.top - insets.bottom - CORNER_PAD * 2;
+
+  // Rotated container: pre-rotation rect has dimensions swapped
+  // (90° rotation around its centre), then offset so its centre
+  // lines up with the centre of the visible rect. The result is
+  // that after `rotate(-90deg)` the rect visually fills exactly
+  // the visible rect — never the rounded corners.
+  const rotW = vh;
+  const rotH = vw;
+  const rotatedLeft = vx + vw / 2 - rotW / 2;
+  const rotatedTop = vy + vh / 2 - rotH / 2;
 
   // Layout budgets inside the rotated container. Keep margins tight
-  // so the chart truly goes edge-to-edge.
+  // so the chart goes as close to edge-to-edge as the safe area
+  // allows.
   const PAD = spacing.md;
   const BUTTON_ROOM = 56; // reserved top strip for the close button
-  const chartWidth = screenH - PAD * 2;
-  const chartHeight = screenW - PAD * 2 - BUTTON_ROOM;
+  const chartWidth = rotW - PAD * 2;
+  const chartHeight = rotH - PAD * 2 - BUTTON_ROOM;
 
   const unit = unitForParam(sensorQuery.data, activeParam);
   const stroke = paramColor(activeParam);
@@ -188,8 +216,8 @@ export default function SensorGraphFullscreen() {
           position: 'absolute',
           top: rotatedTop,
           left: rotatedLeft,
-          width: screenH,
-          height: screenW,
+          width: rotW,
+          height: rotH,
           transform: [{ rotate: '-90deg' }],
           padding: PAD,
         }}
@@ -301,6 +329,46 @@ export default function SensorGraphFullscreen() {
         <View style={{ flex: 1, justifyContent: 'center' }}>
           {historyLoading ? (
             <LoadingIndicator />
+          ) : activeParam === 'pir' ? (
+            points.length < 1 ? (
+              <View
+                style={{
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: spacing.lg,
+                }}
+              >
+                <Icon name="motion-sensor" color="rgba(255,255,255,0.4)" size={28} />
+                <Text
+                  style={[
+                    type.caption,
+                    { color: 'rgba(255,255,255,0.7)', textAlign: 'center' },
+                  ]}
+                >
+                  {historyError
+                    ? (historyError as Error)?.message ?? t('errors.unknown')
+                    : t('indeklima.sensor_detail.no_history')}
+                </Text>
+              </View>
+            ) : (
+              <View
+                style={{
+                  backgroundColor: colors.white,
+                  borderRadius: radius.lg,
+                  padding: spacing.md,
+                }}
+              >
+                <PresenceChart
+                  points={points}
+                  width={chartWidth - spacing.md * 2}
+                  height={chartHeight - spacing.md * 2}
+                  fromTs={presenceBounds.fromTs}
+                  toTs={presenceBounds.toTs}
+                  occupiedLabel={t('indeklima.sensors.presence.occupied')}
+                  vacantLabel={t('indeklima.sensors.presence.vacant')}
+                />
+              </View>
+            )
           ) : points.length < 2 ? (
             <View
               style={{

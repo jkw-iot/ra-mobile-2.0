@@ -1,7 +1,23 @@
 // ══════════════════════════════════════════════════════════════
 // Login screen — email/password + Google (via expo-auth-session).
+//
+// Layout (top → bottom):
+//   1. Language picker — explicit override of the locale detector
+//   2. Logo + welcome subtitle
+//   3. Email + password form (or MFA challenge)
+//   4. Login button (+ Google when configured)
+//   5. Feature highlights — 4 short bullets selling the product
+//   6. Footer link to www.iot-fabrikken.com for "learn more"
 // ══════════════════════════════════════════════════════════════
-import { View, Text, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Pressable,
+  Linking,
+} from 'react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,8 +27,11 @@ import {
   FormInput,
   ErrorBanner,
   Logo,
+  SegmentedControl,
+  Icon,
 } from '@/components';
 import { colors, spacing, type } from '@/theme';
+import { haptic } from '@/lib/haptics';
 import {
   isFirebaseConfigured,
   loginWithEmail,
@@ -23,6 +42,7 @@ import {
 } from '@/services/auth/firebase';
 import { useGoogleSignIn } from '@/services/auth/google';
 import { env } from '@/lib/env';
+import { setLanguage, SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/i18n';
 
 // Isolated in its own component so the underlying Google.useIdTokenAuthRequest
 // hook is only invoked when OAuth client IDs are actually configured. Calling
@@ -50,13 +70,42 @@ function GoogleSignInButton({
 }
 
 export default function LoginScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [mfaCode, setMfaCode] = useState('');
+
+  // Language picker — gives the user an explicit choice before
+  // logging in. The default still flows through the i18n detector
+  // (stored pref → device locale → 'da'), but if the device locale
+  // is unsupported (e.g. Italian), users would otherwise be stuck
+  // on the Danish fallback until after login.
+  const langOptions = SUPPORTED_LANGUAGES.map((code) => ({
+    id: code,
+    label: code.toUpperCase(),
+  }));
+  const currentLang = (
+    SUPPORTED_LANGUAGES as readonly string[]
+  ).includes(i18n.language)
+    ? (i18n.language as SupportedLanguage)
+    : 'da';
+
+  // Feature highlights shown below the login form. Icon names are
+  // Bootstrap-style and resolved through <Icon> to MaterialCommunityIcons.
+  const features: readonly { key: string; icon: string }[] = [
+    { key: 'monitor', icon: 'broadcast' },
+    { key: 'alerts', icon: 'bell' },
+    { key: 'trends', icon: 'graph-up' },
+    { key: 'locations', icon: 'building' },
+  ] as const;
+
+  const openIotFabrikken = () => {
+    haptic.light();
+    void Linking.openURL('https://www.iot-fabrikken.com');
+  };
 
   const handleGoogleToken = async (idToken: string) => {
     try {
@@ -142,6 +191,22 @@ export default function LoginScreen() {
         }}
         keyboardShouldPersistTaps="handled"
       >
+        <View
+          style={{
+            alignSelf: 'center',
+            width: 220,
+            marginBottom: spacing.xl,
+          }}
+        >
+          <SegmentedControl<SupportedLanguage>
+            value={currentLang}
+            onChange={(lang) => setLanguage(lang)}
+            options={langOptions}
+            size="sm"
+            ariaLabel={t('auth.choose_language')}
+          />
+        </View>
+
         <View style={{ alignItems: 'center', marginBottom: spacing.xxl }}>
           <Logo width={240} />
           <Text style={[type.caption, { textAlign: 'center', marginTop: spacing.md }]}>
@@ -239,6 +304,88 @@ export default function LoginScreen() {
               tone="warn"
               message={t('auth.firebase_not_configured')}
             />
+          </View>
+        ) : null}
+
+        {/* Feature highlights — only shown in the regular login flow,
+            not during the MFA challenge so the user can focus on the
+            6-digit code without distraction. */}
+        {!mfaResolver ? (
+          <View style={{ marginTop: spacing.xxl }}>
+            <View style={{ gap: spacing.sm }}>
+              {features.map((f) => (
+                <View
+                  key={f.key}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.md,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: colors.brandAccent + '1A',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Icon
+                      name={f.icon}
+                      size={18}
+                      color={colors.brandAccent}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      type.body,
+                      { flex: 1, color: colors.gray[700] },
+                    ]}
+                  >
+                    {t(`auth.features.${f.key}`)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <Pressable
+              onPress={openIotFabrikken}
+              accessibilityRole="link"
+              accessibilityLabel="iot-fabrikken.com"
+              style={({ pressed }) => ({
+                marginTop: spacing.lg,
+                alignSelf: 'center',
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.xs,
+                  paddingVertical: spacing.xs,
+                  paddingHorizontal: spacing.sm,
+                }}
+              >
+                <Text style={[type.caption, { color: colors.gray[500] }]}>
+                  {t('auth.learn_more')}
+                </Text>
+                <Text
+                  style={[
+                    type.caption,
+                    {
+                      color: colors.brandAccent,
+                      fontWeight: '600',
+                      textDecorationLine: 'underline',
+                    },
+                  ]}
+                >
+                  iot-fabrikken.com
+                </Text>
+              </View>
+            </Pressable>
           </View>
         ) : null}
       </ScrollView>

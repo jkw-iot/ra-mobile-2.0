@@ -19,7 +19,8 @@
     "remove": "Remove",
     "empty": "No data",
     "refresh": "Refresh",
-    "offline": "Offline — showing cached data"
+    "offline": "Offline — showing cached data",
+    "coming_soon": "Coming soon"
   },
   "layout": {
     "modules": {
@@ -33,7 +34,9 @@
     },
     "tabs": {
       "home": "Home",
+      "map": "Map",
       "sensors": "Sensors",
+      "dashboard": "Dashboard",
       "alerts": "Alerts",
       "profile": "Profile"
     },
@@ -52,6 +55,14 @@
     "firebase_not_configured": "Firebase is not configured for this app — add your Firebase keys to app.json or .env",
     "welcome": "Welcome back",
     "welcome_subtitle": "Sign in with your RoomAlyzer account",
+    "choose_language": "Choose language",
+    "features": {
+      "monitor": "Real-time monitoring of temperature, humidity and CO₂",
+      "alerts": "Alerts when thresholds are exceeded",
+      "trends": "Historical trends and insights over time",
+      "locations": "Multiple buildings in one app"
+    },
+    "learn_more": "Read more at",
     "mfa": {
       "challenge_title": "Two-factor authentication",
       "challenge_subtitle": "Enter the 6-digit code from your authenticator app.",
@@ -141,20 +152,81 @@
       "no_history": "No readings in this period",
       "error_title": "Could not load sensor",
       "error_description": "We can't fetch data for this sensor right now.",
-      "battery": "Battery",
-      "signal": "Signal",
+      "battery": {
+        "label": "Battery",
+        "level": {
+          "empty": "Empty",
+          "low": "Low",
+          "medium": "Ok",
+          "high": "Good"
+        },
+        "explain": {
+          "empty": "The battery is almost empty — replace the sensor soon to avoid missing data.",
+          "low": "The battery level is low — consider scheduling a replacement.",
+          "medium": "The battery level is fine — the sensor has power for normal operation.",
+          "high": "The battery is fully charged and ready for many months of operation."
+        }
+      },
       "coverage": {
+        "label": "Coverage",
         "excellent": "Very good",
         "good": "Good",
         "medium": "Medium",
         "poor": "Poor",
-        "none": "None"
+        "none": "None",
+        "explain": {
+          "excellent": "The sensor has excellent signal coverage and is sending data without interruption.",
+          "good": "The sensor has good signal coverage and is operating reliably.",
+          "medium": "The sensor has medium signal coverage — it works but may experience delays.",
+          "poor": "The sensor has poor signal coverage and may temporarily lose connection.",
+          "none": "The sensor has no signal coverage and is not sending data right now."
+        }
       }
     },
     "location_filter": {
       "all": "All",
       "label": "Location",
       "no_location": "No location"
+    },
+    "map": {
+      "fit_all": "Show all sensors"
+    }
+  },
+  "water": {
+    "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Water detection status — refreshes every 10 seconds",
+      "no_sensors": "No water sensors",
+      "no_sensors_subtitle": "No water-detection sensors are registered for this customer yet.",
+      "live_feed": "Live activity",
+      "auto_refresh": "Auto-refreshing",
+      "all_good": "All good",
+      "no_silent": "No silent devices",
+      "unit_min": "min",
+      "kpi": {
+        "active_alarms": "Active alarms",
+        "silent_devices": "Silent devices",
+        "avg_response": "Avg. response",
+        "low_battery": "Low battery"
+      },
+      "kpi_alarm_desc": "Action required",
+      "kpi_dry_unacked_desc": "Dry — pending ack",
+      "kpi_dry_unacked_sub": "{{count}} dry awaiting ack",
+      "kpi_silent_desc": "No data for over {{h}} h",
+      "kpi_response_desc": "Time since alarm triggered",
+      "kpi_battery_desc": "Sensors below 20% battery",
+      "feed": {
+        "alarms": "Alarms",
+        "silent": "Silent",
+        "heartbeats": "Heartbeats",
+        "all_clear_title": "All good",
+        "all_clear_subtitle": "No alarms, silent sensors or heartbeats to show.",
+        "never_heard_from": "Never heard from"
+      }
+    },
+    "map": {
+      "subtitle": "Geographic overview of water sensors",
+      "coming_soon_body": "The water-detection map is on its way. In the meantime you can follow status from the Dashboard."
     }
   },
   "profile": {

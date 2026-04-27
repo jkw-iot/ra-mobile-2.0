@@ -1,15 +1,16 @@
 // ══════════════════════════════════════════════════════════════
 // select-tenant — shown after login when a user has access to
-// more than one tenant. Big navy buttons per tenant, with a
-// clear chevron and a highlighted "active" state.
+// more than one tenant. Uses the same `TenantTileGrid` as the
+// Profile tab so the post-login picker and the in-app switcher
+// are visually identical.
 // ══════════════════════════════════════════════════════════════
-import { View, Text, ScrollView, Pressable, StatusBar, Platform } from 'react-native';
+import { View, Text, ScrollView, StatusBar, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Logo } from '@/components';
-import { colors, radius, spacing, type } from '@/theme';
+import { Logo, TenantTileGrid } from '@/components';
+import { colors, spacing, type } from '@/theme';
 import { useAuth } from '@/services/auth/AuthProvider';
 import { useTenantStore } from '@/stores/tenantStore';
 import { haptic } from '@/lib/haptics';
@@ -76,61 +77,12 @@ export default function SelectTenantScreen() {
           </Text>
         </View>
 
-        <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-          {tenants.map((tenant) => {
-            const isActive = tenant.id === active;
-            const bg = isActive ? colors.brandAccent : colors.navy;
-            return (
-              <View
-                key={tenant.id}
-                style={{
-                  borderRadius: radius.lg,
-                  backgroundColor: bg,
-                  shadowColor: '#0b1a2b',
-                  shadowOpacity: 0.18,
-                  shadowRadius: 12,
-                  shadowOffset: { width: 0, height: 4 },
-                  elevation: 4,
-                }}
-              >
-                <Pressable
-                  onPress={() => pick(tenant.id)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isActive }}
-                  accessibilityLabel={tenant.name}
-                  style={({ pressed }) => ({
-                    borderRadius: radius.lg,
-                    opacity: pressed ? 0.9 : 1,
-                    transform: [{ scale: pressed ? 0.99 : 1 }],
-                  })}
-                >
-                  <View
-                    style={{
-                      minHeight: 140,
-                      paddingVertical: spacing.xl,
-                      paddingHorizontal: spacing.lg,
-                      borderRadius: radius.lg,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 20,
-                        fontWeight: '700',
-                        color: colors.white,
-                        letterSpacing: -0.2,
-                        textAlign: 'center',
-                      }}
-                      numberOfLines={2}
-                    >
-                      {tenant.name}
-                    </Text>
-                  </View>
-                </Pressable>
-              </View>
-            );
-          })}
+        <View style={{ marginTop: spacing.sm }}>
+          <TenantTileGrid
+            tenants={tenants}
+            activeTenantId={active}
+            onSelect={pick}
+          />
         </View>
       </ScrollView>
     </View>

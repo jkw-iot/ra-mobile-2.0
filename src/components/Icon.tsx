@@ -81,9 +81,30 @@ const ICON_MAP: Record<string, MciName> = {
   'thermometer': 'thermometer',
   'droplet': 'water-outline',
   'droplet-fill': 'water',
+  'droplet-half': 'water-percent',
+  'water-alert': 'water-alert',
+  'volume-mute': 'volume-mute',
+  'volume-off': 'volume-off',
+  'mic-mute': 'microphone-off',
+  'heart-pulse': 'heart-pulse',
+  'speedometer': 'speedometer',
+  'stopwatch': 'timer-outline',
+  'shield': 'shield-outline',
+  // Humidity — droplet with a percent sign. Reads "humidity" at a
+  // glance without needing a text label next to it.
+  'humidity': 'water-percent',
   'cloud': 'cloud-outline',
   'cloud-fog': 'weather-fog',
   'wind': 'weather-windy',
+  // CO₂ — the literal "CO₂" molecule glyph. Used for the param
+  // selector on sensor-detail where there's no room for text.
+  'co2': 'molecule-co2',
+  // VOC — air-quality / filter glyph. The closest unambiguous icon
+  // for "volatile organic compounds" in MaterialCommunityIcons.
+  'air-filter': 'air-filter',
+  // Presence (PIR) — motion-sensor glyph. Communicates "presence
+  // detection" far more precisely than a person silhouette.
+  'motion-sensor': 'motion-sensor',
   'sun': 'weather-sunny',
   'moon': 'weather-night',
   'broadcast': 'broadcast',

@@ -19,13 +19,14 @@
     "remove": "Fjern",
     "empty": "Ingen data",
     "refresh": "Opdater",
-    "offline": "Offline — viser cachede data"
+    "offline": "Offline — viser cachede data",
+    "coming_soon": "Kommer snart"
   },
   "layout": {
     "modules": {
       "indeklima": "Indeklima",
       "preservation": "Bevaring",
-      "water": "Vanddetektering",
+      "water": "Vand\u00ADdetektering",
       "space": "Space Management",
       "pushbuttons": "Trykknapper",
       "doors": "Skabe & Døre",
@@ -33,7 +34,9 @@
     },
     "tabs": {
       "home": "Hjem",
+      "map": "Kort",
       "sensors": "Sensorer",
+      "dashboard": "Dashboard",
       "alerts": "Alarmer",
       "profile": "Profil"
     },
@@ -52,6 +55,14 @@
     "firebase_not_configured": "Firebase er ikke konfigureret for denne app — tilføj Firebase-nøgler i app.json eller .env",
     "welcome": "Velkommen tilbage",
     "welcome_subtitle": "Log ind med din RoomAlyzer-konto",
+    "choose_language": "Vælg sprog",
+    "features": {
+      "monitor": "Realtidsovervågning af temperatur, fugt og CO₂",
+      "alerts": "Alarmer ved grænseoverskridelser",
+      "trends": "Trends og historik over tid",
+      "locations": "Flere bygninger samlet i én app"
+    },
+    "learn_more": "Læs mere på",
     "mfa": {
       "challenge_title": "To-faktor-godkendelse",
       "challenge_subtitle": "Indtast den 6-cifrede kode fra din autentificeringsapp.",
@@ -141,20 +152,81 @@
       "no_history": "Ingen målinger i denne periode",
       "error_title": "Kunne ikke hente sensor",
       "error_description": "Vi kan ikke hente data for denne sensor lige nu.",
-      "battery": "Batteri",
-      "signal": "Signal",
+      "battery": {
+        "label": "Batteri",
+        "level": {
+          "empty": "Tom",
+          "low": "Lavt",
+          "medium": "Ok",
+          "high": "Godt"
+        },
+        "explain": {
+          "empty": "Batteriet er næsten tomt — sensoren bør udskiftes snart, ellers risikerer du at miste data.",
+          "low": "Batteriniveauet er lavt — overvej at planlægge udskiftning inden for kort tid.",
+          "medium": "Batteriniveauet er fint — sensoren har strøm til normal drift.",
+          "high": "Batteriet er fuldt opladet og klar til mange måneders drift."
+        }
+      },
       "coverage": {
+        "label": "Dækning",
         "excellent": "Meget god",
         "good": "God",
         "medium": "Middel",
         "poor": "Dårlig",
-        "none": "Ingen"
+        "none": "Ingen",
+        "explain": {
+          "excellent": "Sensoren har fremragende signaldækning og sender data uden afbrydelser.",
+          "good": "Sensoren har god signaldækning og fungerer pålideligt.",
+          "medium": "Sensoren har middel signaldækning — den fungerer, men kan opleve forsinkelser.",
+          "poor": "Sensoren har dårlig signaldækning og kan miste forbindelsen i kortere perioder.",
+          "none": "Sensoren har ingen signaldækning og sender ikke data lige nu."
+        }
       }
     },
     "location_filter": {
       "all": "Alle",
       "label": "Lokation",
       "no_location": "Uden lokation"
+    },
+    "map": {
+      "fit_all": "Vis alle sensorer"
+    }
+  },
+  "water": {
+    "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Status for vanddetektering — opdateres hvert 10. sekund",
+      "no_sensors": "Ingen vand-sensorer",
+      "no_sensors_subtitle": "Der er ikke registreret vanddetekterings-sensorer på denne aftale endnu.",
+      "live_feed": "Live aktivitet",
+      "auto_refresh": "Auto-opdaterer",
+      "all_good": "Alt i orden",
+      "no_silent": "Ingen tavse enheder",
+      "unit_min": "min",
+      "kpi": {
+        "active_alarms": "Aktive alarmer",
+        "silent_devices": "Tavse enheder",
+        "avg_response": "Gns. responstid",
+        "low_battery": "Lavt batteri"
+      },
+      "kpi_alarm_desc": "Kræver handling",
+      "kpi_dry_unacked_desc": "Tørre — afventer kvittering",
+      "kpi_dry_unacked_sub": "{{count}} tørre afventer kvittering",
+      "kpi_silent_desc": "Ikke hørt fra i over {{h}} t",
+      "kpi_response_desc": "Tid siden alarm blev udløst",
+      "kpi_battery_desc": "Sensorer med <20% batteri",
+      "feed": {
+        "alarms": "Alarmer",
+        "silent": "Tavse",
+        "heartbeats": "Hjerteslag",
+        "all_clear_title": "Alt i orden",
+        "all_clear_subtitle": "Ingen alarmer, tavse enheder eller hjerteslag at vise.",
+        "never_heard_from": "Aldrig hørt fra"
+      }
+    },
+    "map": {
+      "subtitle": "Geografisk overblik over vand-sensorer",
+      "coming_soon_body": "Kortet for vanddetektering er på vej. I mellemtiden kan du følge status fra Dashboard."
     }
   },
   "profile": {

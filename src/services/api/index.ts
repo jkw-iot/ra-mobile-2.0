@@ -1,5 +1,12 @@
 export { apiClient, ApiError } from './client';
-export { api, indeklimaApi, authApi, sensorTypesApi } from './typed';
+export {
+  api,
+  indeklimaApi,
+  authApi,
+  sensorTypesApi,
+  waterApi,
+  adminApi,
+} from './typed';
 export type {
   paths,
   components,
@@ -10,4 +17,14 @@ export type {
   SensorThresholds,
   SensorTypeDef,
   IndeklimaLocation,
+  SensorPositions,
+  WaterDashboardResponse,
+  WaterDashboardKpi,
+  WaterAlarm,
+  WaterAlarmStatus,
+  WaterSilentSensor,
+  WaterHeartbeat,
+  WaterConfig,
+  WaterConfigUpdateBody,
+  AdminSensor,
 } from './typed';

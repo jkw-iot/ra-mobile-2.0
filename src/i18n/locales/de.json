@@ -19,13 +19,14 @@
     "remove": "Entfernen",
     "empty": "Keine Daten",
     "refresh": "Aktualisieren",
-    "offline": "Offline — zwischengespeicherte Daten"
+    "offline": "Offline — zwischengespeicherte Daten",
+    "coming_soon": "Demnächst verfügbar"
   },
   "layout": {
     "modules": {
       "indeklima": "Raumklima",
       "preservation": "Konservierung",
-      "water": "Wasserdetektion",
+      "water": "Wasser\u00ADdetektion",
       "space": "Space Management",
       "pushbuttons": "Tastenschalter",
       "doors": "Schränke & Türen",
@@ -33,7 +34,9 @@
     },
     "tabs": {
       "home": "Start",
+      "map": "Karte",
       "sensors": "Sensoren",
+      "dashboard": "Dashboard",
       "alerts": "Alarme",
       "profile": "Profil"
     },
@@ -52,6 +55,14 @@
     "firebase_not_configured": "Firebase ist nicht konfiguriert — Schlüssel in app.json oder .env ergänzen",
     "welcome": "Willkommen zurück",
     "welcome_subtitle": "Melden Sie sich mit Ihrem RoomAlyzer-Konto an",
+    "choose_language": "Sprache wählen",
+    "features": {
+      "monitor": "Echtzeit-Überwachung von Temperatur, Feuchtigkeit und CO₂",
+      "alerts": "Warnungen bei Grenzwertüberschreitungen",
+      "trends": "Historische Trends und Daten im Zeitverlauf",
+      "locations": "Mehrere Gebäude in einer App"
+    },
+    "learn_more": "Mehr erfahren auf",
     "mfa": {
       "challenge_title": "Zwei-Faktor-Authentifizierung",
       "challenge_subtitle": "Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.",
@@ -141,20 +152,81 @@
       "no_history": "Keine Messwerte im Zeitraum",
       "error_title": "Sensor konnte nicht geladen werden",
       "error_description": "Die Sensordaten sind gerade nicht verfügbar.",
-      "battery": "Batterie",
-      "signal": "Signal",
+      "battery": {
+        "label": "Batterie",
+        "level": {
+          "empty": "Leer",
+          "low": "Niedrig",
+          "medium": "Ok",
+          "high": "Gut"
+        },
+        "explain": {
+          "empty": "Die Batterie ist fast leer — der Sensor sollte bald getauscht werden, sonst gehen Daten verloren.",
+          "low": "Der Batteriestand ist niedrig — planen Sie demnächst einen Austausch ein.",
+          "medium": "Der Batteriestand ist in Ordnung — der Sensor hat genug Energie für den Normalbetrieb.",
+          "high": "Die Batterie ist voll geladen und für viele Monate Betrieb bereit."
+        }
+      },
       "coverage": {
+        "label": "Abdeckung",
         "excellent": "Sehr gut",
         "good": "Gut",
         "medium": "Mittel",
         "poor": "Schlecht",
-        "none": "Keine"
+        "none": "Keine",
+        "explain": {
+          "excellent": "Der Sensor hat eine ausgezeichnete Signalabdeckung und sendet Daten ohne Unterbrechung.",
+          "good": "Der Sensor hat eine gute Signalabdeckung und arbeitet zuverlässig.",
+          "medium": "Der Sensor hat eine mittlere Signalabdeckung — er funktioniert, kann aber Verzögerungen haben.",
+          "poor": "Der Sensor hat eine schlechte Signalabdeckung und verliert möglicherweise zeitweise die Verbindung.",
+          "none": "Der Sensor hat keine Signalabdeckung und sendet derzeit keine Daten."
+        }
       }
     },
     "location_filter": {
       "all": "Alle",
       "label": "Standort",
       "no_location": "Ohne Standort"
+    },
+    "map": {
+      "fit_all": "Alle Sensoren anzeigen"
+    }
+  },
+  "water": {
+    "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Status der Wasserdetektion — aktualisiert alle 10 Sekunden",
+      "no_sensors": "Keine Wasser-Sensoren",
+      "no_sensors_subtitle": "Für diesen Kunden sind noch keine Wasserdetektions-Sensoren registriert.",
+      "live_feed": "Live-Aktivität",
+      "auto_refresh": "Auto-Update",
+      "all_good": "Alles in Ordnung",
+      "no_silent": "Keine stummen Geräte",
+      "unit_min": "Min.",
+      "kpi": {
+        "active_alarms": "Aktive Alarme",
+        "silent_devices": "Stumme Geräte",
+        "avg_response": "Ø Reaktionszeit",
+        "low_battery": "Niedriger Akku"
+      },
+      "kpi_alarm_desc": "Aktion erforderlich",
+      "kpi_dry_unacked_desc": "Trocken — wartet auf Quittung",
+      "kpi_dry_unacked_sub": "{{count}} trocken, warten auf Quittung",
+      "kpi_silent_desc": "Seit über {{h}} h keine Daten",
+      "kpi_response_desc": "Zeit seit Alarmauslösung",
+      "kpi_battery_desc": "Sensoren mit <20 % Akku",
+      "feed": {
+        "alarms": "Alarme",
+        "silent": "Stumm",
+        "heartbeats": "Herzschlag",
+        "all_clear_title": "Alles in Ordnung",
+        "all_clear_subtitle": "Keine Alarme, stummen Geräte oder Herzschläge.",
+        "never_heard_from": "Nie gehört"
+      }
+    },
+    "map": {
+      "subtitle": "Geografische Übersicht der Wasser-Sensoren",
+      "coming_soon_body": "Die Karte für die Wasserdetektion wird vorbereitet. In der Zwischenzeit können Sie den Status im Dashboard verfolgen."
     }
   },
   "profile": {

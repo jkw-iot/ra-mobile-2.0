@@ -111,8 +111,11 @@ export function LineChart({
     );
   }
 
-  const padLeft = 40;
-  const padRight = 8;
+  // Y-axis labels right-align to `padLeft - 4`. 32px is enough for
+  // up to 4-digit ticks ("1000") plus the gridline offset, and saves
+  // 8px of internal whitespace versus the previous 40px gutter.
+  const padLeft = 32;
+  const padRight = 6;
   const padTop = 14;
   const padBottom = 24;
 

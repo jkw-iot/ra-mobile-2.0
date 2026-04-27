@@ -74,7 +74,7 @@ export function KpiTile({
           overflow: 'hidden',
           backgroundColor: colors.white,
           borderRadius: radius.lg,
-          minHeight: 110,
+          minHeight: 92,
           borderWidth: active ? 2 : 1,
           borderColor: borderCol,
           shadowColor: '#0b1a2b',
@@ -82,8 +82,9 @@ export function KpiTile({
           shadowRadius: active ? 10 : 6,
           shadowOffset: { width: 0, height: 3 },
           elevation: active ? 4 : 2,
-          padding: spacing.lg,
-          gap: 8,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          gap: 6,
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -96,8 +97,8 @@ export function KpiTile({
             adjustsFontSizeToFit
             minimumFontScale={0.7}
             style={{
-              fontSize: 40,
-              lineHeight: 46,
+              fontSize: 36,
+              lineHeight: 42,
               fontWeight: '700',
               color: valueColor ?? colors.brandDark,
               letterSpacing: -0.8,

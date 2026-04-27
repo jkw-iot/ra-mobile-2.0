@@ -19,13 +19,14 @@
     "remove": "Ta bort",
     "empty": "Inga data",
     "refresh": "Uppdatera",
-    "offline": "Offline — visar cachad data"
+    "offline": "Offline — visar cachad data",
+    "coming_soon": "Kommer snart"
   },
   "layout": {
     "modules": {
       "indeklima": "Inomhusklimat",
       "preservation": "Bevaring",
-      "water": "Vattendetektion",
+      "water": "Vatten\u00ADdetektion",
       "space": "Space Management",
       "pushbuttons": "Tryckknappar",
       "doors": "Skåp & Dörrar",
@@ -33,7 +34,9 @@
     },
     "tabs": {
       "home": "Hem",
+      "map": "Karta",
       "sensors": "Sensorer",
+      "dashboard": "Dashboard",
       "alerts": "Larm",
       "profile": "Profil"
     },
@@ -52,6 +55,14 @@
     "firebase_not_configured": "Firebase är inte konfigurerat — lägg till nycklar i app.json eller .env",
     "welcome": "Välkommen tillbaka",
     "welcome_subtitle": "Logga in med ditt RoomAlyzer-konto",
+    "choose_language": "Välj språk",
+    "features": {
+      "monitor": "Realtidsövervakning av temperatur, fukt och CO₂",
+      "alerts": "Larm vid gränsöverskridanden",
+      "trends": "Historiska trender och data över tid",
+      "locations": "Flera byggnader i en app"
+    },
+    "learn_more": "Läs mer på",
     "mfa": {
       "challenge_title": "Tvåfaktorsautentisering",
       "challenge_subtitle": "Ange den 6-siffriga koden från din autentiseringsapp.",
@@ -141,20 +152,81 @@
       "no_history": "Inga mätningar i perioden",
       "error_title": "Kunde inte hämta sensor",
       "error_description": "Vi kan inte hämta data för den här sensorn just nu.",
-      "battery": "Batteri",
-      "signal": "Signal",
+      "battery": {
+        "label": "Batteri",
+        "level": {
+          "empty": "Tomt",
+          "low": "Lågt",
+          "medium": "Ok",
+          "high": "Bra"
+        },
+        "explain": {
+          "empty": "Batteriet är nästan tomt — sensorn bör bytas snart, annars riskerar du att förlora data.",
+          "low": "Batterinivån är låg — planera ett byte inom kort.",
+          "medium": "Batterinivån är ok — sensorn har ström för normal drift.",
+          "high": "Batteriet är fulladdat och redo för många månaders drift."
+        }
+      },
       "coverage": {
+        "label": "Täckning",
         "excellent": "Mycket bra",
         "good": "Bra",
         "medium": "Medel",
         "poor": "Dålig",
-        "none": "Ingen"
+        "none": "Ingen",
+        "explain": {
+          "excellent": "Sensorn har utmärkt signaltäckning och skickar data utan avbrott.",
+          "good": "Sensorn har bra signaltäckning och fungerar tillförlitligt.",
+          "medium": "Sensorn har medelgod signaltäckning — den fungerar men kan uppleva fördröjningar.",
+          "poor": "Sensorn har dålig signaltäckning och kan tappa förbindelsen tillfälligt.",
+          "none": "Sensorn har ingen signaltäckning och skickar inga data just nu."
+        }
       }
     },
     "location_filter": {
       "all": "Alla",
       "label": "Plats",
       "no_location": "Ingen plats"
+    },
+    "map": {
+      "fit_all": "Visa alla sensorer"
+    }
+  },
+  "water": {
+    "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Status för vattendetektering — uppdateras var 10:e sekund",
+      "no_sensors": "Inga vattensensorer",
+      "no_sensors_subtitle": "Det finns inga registrerade vattendetekterings-sensorer för denna kund än.",
+      "live_feed": "Live-aktivitet",
+      "auto_refresh": "Auto-uppdaterar",
+      "all_good": "Allt är bra",
+      "no_silent": "Inga tysta enheter",
+      "unit_min": "min",
+      "kpi": {
+        "active_alarms": "Aktiva larm",
+        "silent_devices": "Tysta enheter",
+        "avg_response": "Snitt-responstid",
+        "low_battery": "Lågt batteri"
+      },
+      "kpi_alarm_desc": "Åtgärd krävs",
+      "kpi_dry_unacked_desc": "Torra — väntar på kvittens",
+      "kpi_dry_unacked_sub": "{{count}} torra väntar på kvittens",
+      "kpi_silent_desc": "Ingen data på över {{h}} h",
+      "kpi_response_desc": "Tid sedan larm utlöstes",
+      "kpi_battery_desc": "Sensorer med <20 % batteri",
+      "feed": {
+        "alarms": "Larm",
+        "silent": "Tysta",
+        "heartbeats": "Hjärtslag",
+        "all_clear_title": "Allt är bra",
+        "all_clear_subtitle": "Inga larm, tysta sensorer eller hjärtslag att visa.",
+        "never_heard_from": "Aldrig hört av"
+      }
+    },
+    "map": {
+      "subtitle": "Geografisk översikt över vattensensorer",
+      "coming_soon_body": "Kartan för vattendetektering är på väg. Under tiden kan du följa status från Dashboard."
     }
   },
   "profile": {

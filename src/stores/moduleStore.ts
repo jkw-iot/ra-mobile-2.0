@@ -23,17 +23,43 @@ export interface ModuleDef {
   i18nKey: string; // e.g. "layout.modules.indeklima"
   icon: string;    // web-style Bootstrap Icons name; mapped by <Icon>
   available: boolean;
+  /**
+   * Primary screen for this module. Used as the landing route
+   * when the user switches to this module from the burger
+   * drawer, AND when picking a tenant from the Profile tab —
+   * the user expects to be dropped into the module's main view
+   * rather than left staring at the Profile / picker screen
+   * they triggered the switch from.
+   *
+   * Modules that haven't shipped yet still declare a route so
+   * the type stays uniform; the Indeklima sensor list is used
+   * as a safe fallback for unbuilt modules until each one gets
+   * its own home.
+   */
+  primaryRoute: string;
 }
 
 export const MODULES: readonly ModuleDef[] = [
-  { slug: 'indeklima',    i18nKey: 'layout.modules.indeklima',    icon: 'thermometer-half', available: true  },
-  { slug: 'preservation', i18nKey: 'layout.modules.preservation', icon: 'building',         available: false },
-  { slug: 'water',        i18nKey: 'layout.modules.water',        icon: 'droplet',          available: false },
-  { slug: 'space',        i18nKey: 'layout.modules.space',        icon: 'people',           available: false },
-  { slug: 'pushbuttons',  i18nKey: 'layout.modules.pushbuttons',  icon: 'bell',             available: false },
-  { slug: 'doors',        i18nKey: 'layout.modules.doors',        icon: 'door-open',        available: false },
-  { slug: 'usage',        i18nKey: 'layout.modules.usage',        icon: 'graph-up',         available: false },
+  { slug: 'indeklima',    i18nKey: 'layout.modules.indeklima',    icon: 'thermometer-half', available: true,  primaryRoute: '/(tabs)/sensors' },
+  { slug: 'preservation', i18nKey: 'layout.modules.preservation', icon: 'building',         available: false, primaryRoute: '/(tabs)/sensors' },
+  { slug: 'water',        i18nKey: 'layout.modules.water',        icon: 'droplet',          available: true,  primaryRoute: '/(tabs)/sensors' },
+  { slug: 'space',        i18nKey: 'layout.modules.space',        icon: 'people',           available: false, primaryRoute: '/(tabs)/sensors' },
+  { slug: 'pushbuttons',  i18nKey: 'layout.modules.pushbuttons',  icon: 'bell',             available: false, primaryRoute: '/(tabs)/sensors' },
+  { slug: 'doors',        i18nKey: 'layout.modules.doors',        icon: 'door-open',        available: false, primaryRoute: '/(tabs)/sensors' },
+  { slug: 'usage',        i18nKey: 'layout.modules.usage',        icon: 'graph-up',         available: false, primaryRoute: '/(tabs)/sensors' },
 ];
+
+/**
+ * Resolve the primary route for a given module slug. Falls back
+ * to Indeklima's sensor list — the only fully-shipped module —
+ * if the slug doesn't match any registered module (defensive for
+ * stale persisted state).
+ */
+export function getModulePrimaryRoute(slug: ModuleSlug): string {
+  return (
+    MODULES.find((m) => m.slug === slug)?.primaryRoute ?? '/(tabs)/sensors'
+  );
+}
 
 interface ModuleState {
   activeModule: ModuleSlug;

@@ -32,6 +32,13 @@ export type IndeklimaLocation = JsonResponse<
   'get'
 >[number];
 
+// `/admin/sensor-positions` returns `{ [sensorId]: { lat, lng } }`
+// keyed by stringified sensor id.
+export type SensorPositions = JsonResponse<
+  '/api/admin/sensor-positions',
+  'get'
+>;
+
 export const indeklimaApi = {
   /** List all sensor groups with live readings. */
   getSensors: () =>
@@ -74,6 +81,16 @@ export const indeklimaApi = {
     apiClient.get<SensorThresholds>(
       `/indeklima/sensors/${encodeURIComponent(String(id))}/thresholds`,
     ),
+
+  /**
+   * Saved GPS positions for sensors placed on the map.
+   * Returns `{ [sensorId]: { lat, lng } }`. Endpoint lives under
+   * `/admin/...` for historical reasons but is readable by any
+   * authenticated tenant member — the same call powers the web
+   * Map page for non-admin users.
+   */
+  getSensorPositions: () =>
+    apiClient.get<SensorPositions>('/admin/sensor-positions'),
 } as const;
 
 // ── Sensor Types ─────────────────────────────────────────
@@ -99,11 +116,117 @@ export const authApi = {
   me: () => apiClient.get<JsonResponse<'/api/auth/me', 'get'>>('/auth/me'),
 } as const;
 
+// ── Water Detection ───────────────────────────────────────
+//
+// The dashboard endpoint returns more fields than the OpenAPI
+// schema currently advertises (the spec at gen-time was stale —
+// it missed `dryUnacked`, `lowBattery`, `recentHeartbeats`,
+// `silentThresholdHours`, `knownSensorIds`, and the `dry_unacked`
+// alarm status). Until the next `npm run gen:api` we augment the
+// schema-derived shape locally so the feature module stays
+// type-safe end-to-end without redefining the whole response.
+type SchemaWaterDashboard = JsonResponse<'/api/waterdetection/dashboard', 'get'>;
+
+export interface WaterDashboardKpi {
+  total: number;
+  alarm: number;
+  /** Sensors that went dry while a human ack is still pending. */
+  dryUnacked?: number;
+  dry: number;
+  silent: number;
+  /** Sensors with battery <= 20%. */
+  lowBattery?: number;
+}
+
+export type WaterAlarmStatus = 'active' | 'acknowledged' | 'dry_unacked';
+
+export interface WaterAlarm {
+  id: number;
+  sensorId: string;
+  sensorName: string;
+  location: string;
+  triggeredAt: string;
+  status: WaterAlarmStatus;
+  ackBy: string | null;
+  ackAt: string | null;
+  ackNote: string | null;
+  driedAt?: string | null;
+}
+
+export interface WaterSilentSensor {
+  sensorId: string;
+  name: string;
+  location: string;
+  lastSeen: string | null;
+  batteryPct: number | null;
+  /** True for sensors registered in /admin/sensors but never seen. */
+  neverHeardFrom?: boolean;
+}
+
+export interface WaterHeartbeat {
+  sensorId: string;
+  sensorName: string;
+  location: string;
+  batteryPct: number | null;
+  receivedAt: string;
+}
+
+export interface WaterDashboardResponse
+  extends Omit<SchemaWaterDashboard, 'kpi' | 'activeAlarms' | 'silentSensors'> {
+  kpi: WaterDashboardKpi;
+  activeAlarms: WaterAlarm[];
+  silentSensors: WaterSilentSensor[];
+  recentHeartbeats?: WaterHeartbeat[];
+  silentThresholdHours?: number;
+  knownSensorIds?: string[];
+}
+
+export type WaterConfig = JsonResponse<'/api/waterdetection/config', 'get'>;
+export type WaterConfigUpdateBody = {
+  silentThresholdHours?: number;
+  slaThresholdMinutes?: number;
+};
+
+export const waterApi = {
+  /** Dashboard KPIs, active alarms, silent sensors and recent heartbeats. */
+  getDashboard: () =>
+    apiClient.get<WaterDashboardResponse>('/waterdetection/dashboard'),
+
+  /** Per-tenant configuration (silent + SLA thresholds). */
+  getConfig: () => apiClient.get<WaterConfig>('/waterdetection/config'),
+
+  /**
+   * Update per-tenant configuration. Backend enforces:
+   *   - silentThresholdHours >= 24
+   *   - slaThresholdMinutes  >= 1
+   */
+  updateConfig: (body: WaterConfigUpdateBody) =>
+    apiClient.put<JsonResponse<'/api/waterdetection/config', 'put'>>(
+      '/waterdetection/config',
+      body,
+    ),
+} as const;
+
+// ── Admin Sensors (registered fleet, all sensor types) ────
+//
+// Used by the water dashboard to count every device registered as
+// a water sensor (`sensorType === '27'`) — including ones that
+// never sent an event yet, which the live `wd_sensor_status` view
+// does not know about. Endpoint is read-accessible by regular
+// tenant members (same as `/admin/sensor-positions`).
+export type AdminSensor = JsonResponse<'/api/admin/sensors', 'get'>[number];
+
+export const adminApi = {
+  getSensors: () => apiClient.get<AdminSensor[]>('/admin/sensors'),
+} as const;
+
 // ── Barrel ────────────────────────────────────────────────
 export const api = {
   indeklima: indeklimaApi,
   auth: authApi,
   sensorTypes: sensorTypesApi,
+  water: waterApi,
+  admin: adminApi,
 } as const;
 
 // Re-export useful types for feature modules

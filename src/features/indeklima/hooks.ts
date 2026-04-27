@@ -14,6 +14,7 @@ import {
   sensorTypesApi,
   type IndeklimaLocation,
   type Sensor,
+  type SensorPositions,
   type SensorTypeDef,
 } from '@/services/api';
 import { cacheTiers } from '@/lib/queryClient';
@@ -172,15 +173,77 @@ export function useSensorThresholds(id: number | string | null) {
 // sensor currently lives there. Used to populate the list-view
 // location filter alongside whatever we can infer from
 // sensor.path segments.
+//
+// Cached at the "snapshot" tier (1h staleTime, 1d gcTime) — not
+// the "downsampled" tier the historical aggregates use. Location
+// names are tenant configuration: they can be edited at any time
+// in the web admin and users expect renames/restructures to show
+// up in a reasonable time-frame, not after 6 hours. Pull-to-
+// refresh on the sensor list also calls `refetch()` on this query
+// so an explicit reload is always immediate.
 export function useLocations() {
   const tenantId = useTenantStore((s) => s.activeTenantId);
   return useQuery({
     queryKey: ['indeklima', 'locations', { tenantId }],
     queryFn: () => indeklimaApi.getLocations(),
     enabled: tenantId !== null,
-    staleTime: cacheTiers.downsampled.staleTime,
-    gcTime: cacheTiers.downsampled.gcTime,
-    meta: { cacheTier: 'downsampled' as const },
+    staleTime: cacheTiers.snapshot.staleTime,
+    gcTime: cacheTiers.snapshot.gcTime,
+    meta: { cacheTier: 'snapshot' as const },
+  });
+}
+
+// ── Sensor positions (saved GPS coords per sensor) ────────
+// Used by the map screen to place sensors on the geographic
+// map. Sensors without a saved position fall back to a seeded
+// random point inside their group's `location` bounding box.
+//
+// IMPORTANT: the legacy `/admin/sensor-positions` endpoint
+// returns an ARRAY `[{ id, name, lat, lng }, …]` in production,
+// not the object map `{ [id]: { lat, lng } }` documented in the
+// OpenAPI schema. The web app handles both shapes (see
+// `roomalyzer20/src/services/sensorMapService.js#normalisePositionsResponse`);
+// without the same normalisation here, every position lookup
+// would miss and the map would render only fallback positions.
+function normalizeSensorPositions(
+  raw: unknown,
+): Record<string, { lat: number; lng: number }> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, { lat: number; lng: number }> = {};
+  const ingest = (key: unknown, lat: unknown, lng: unknown) => {
+    if (key == null) return;
+    if (typeof lat !== 'number' || typeof lng !== 'number') return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    out[String(key)] = { lat, lng };
+  };
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (!item || typeof item !== 'object') continue;
+      const obj = item as { id?: unknown; sensorId?: unknown; lat?: unknown; lng?: unknown };
+      ingest(obj.sensorId ?? obj.id, obj.lat, obj.lng);
+    }
+    return out;
+  }
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!v || typeof v !== 'object') continue;
+    const obj = v as { lat?: unknown; lng?: unknown };
+    ingest(k, obj.lat, obj.lng);
+  }
+  return out;
+}
+
+export function useSensorPositions() {
+  const tenantId = useTenantStore((s) => s.activeTenantId);
+  return useQuery({
+    queryKey: ['indeklima', 'sensor-positions', { tenantId }],
+    queryFn: async () => {
+      const raw = await indeklimaApi.getSensorPositions();
+      return normalizeSensorPositions(raw) as unknown as SensorPositions;
+    },
+    enabled: tenantId !== null,
+    staleTime: cacheTiers.snapshot.staleTime,
+    gcTime: cacheTiers.snapshot.gcTime,
+    meta: { cacheTier: 'snapshot' as const },
   });
 }
 
@@ -238,8 +301,16 @@ export function sensorSupports(
 export interface LocationOption {
   id: string;
   name: string;
+  /** Total sensor count in this subtree (self + every descendant). */
   count: number;
   depth: number;
+  /**
+   * Set of location ids that "belong" to this option for filtering.
+   * Always includes the option's own id; for parent locations also
+   * every descendant id. So picking "Sommerhus" matches every sensor
+   * whose locationId is "Sommerhus" *or* "Sommerhus → Test".
+   */
+  subtreeIds: ReadonlySet<string>;
 }
 
 /**
@@ -250,11 +321,20 @@ export interface LocationOption {
  * `path` / `groupTitle` are just display buckets from the live
  * snapshot endpoint and don't encode the real location.
  *
- * Only locations that actually have at least one sensor are returned
- * — picking a location without sensors would give an empty list and
- * confuse the user. If a sensor references a location id that the
- * locations endpoint doesn't know about, we still surface it with a
- * fallback name so the filter is complete.
+ * Locations form a tree (parentId → id). A parent appears in the
+ * picker as long as *anywhere in its subtree* there's at least
+ * one sensor — even if the parent itself has no direct sensors.
+ * Without this, picking "Sommerhus" would never match anything if
+ * all of its sensors happened to live in a sub-location like
+ * "Test", and the sub-location would render at depth 1 with no
+ * visible parent above it (looking like an unrelated top-level
+ * item). Each option's `subtreeIds` set lets the matcher include
+ * the whole subtree when a parent is selected.
+ *
+ * If a sensor references a location id the locations endpoint
+ * doesn't know about, we still surface it with a fallback name so
+ * the filter is complete.
+ *
  * A generic "General" / "Generel" bucket — which the backend uses
  * for unassigned sensors — is filtered out: it isn't a meaningful
  * filter for the end user.
@@ -276,77 +356,194 @@ function sortLocations(a: IndeklimaLocation, b: IndeklimaLocation): number {
   return a.name.localeCompare(b.name, 'da');
 }
 
+/**
+ * Flatten the legacy `/indeklima/locations` response into a flat
+ * array of locations.
+ *
+ * The OpenAPI schema documents the endpoint as a flat list of
+ * `{ id, name, parentId, flow }`, but in production the legacy
+ * backend actually returns a NESTED tree where each parent has a
+ * `children: [...]` array. The web app handles this by walking
+ * `children` recursively (see `roomalyzer20/src/services/
+ * indeklimaLegacyService.js`); without the same flattening here
+ * any non-root location is invisible to us — its `id` never
+ * enters our index, so a sensor referencing it falls into the
+ * "unknown location" fallback (rendered as "Lokation #<id>").
+ *
+ * Each nested node still carries its own `parentId`, so once
+ * flattened, the rest of `buildLocationOptions` works unchanged.
+ */
+function flattenLocationTree(
+  locations: IndeklimaLocation[],
+): IndeklimaLocation[] {
+  const out: IndeklimaLocation[] = [];
+  const visited = new Set<string>();
+  const walk = (nodes: readonly unknown[]) => {
+    for (const raw of nodes) {
+      if (!raw || typeof raw !== 'object') continue;
+      const node = raw as IndeklimaLocation & { children?: unknown };
+      const id = String(node.id);
+      if (!visited.has(id)) {
+        visited.add(id);
+        out.push(node);
+      }
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        walk(node.children);
+      }
+    }
+  };
+  walk(locations);
+  return out;
+}
+
 export function buildLocationOptions(
   sensors: readonly FlatSensor[],
   locations: IndeklimaLocation[] | undefined,
 ): LocationOption[] {
-  const countsById = new Map<string, number>();
+  // ── Count direct sensors per location id ───────────────
+  const directCount = new Map<string, number>();
   for (const s of sensors) {
     if (s.locationId == null) continue;
     const key = String(s.locationId);
-    countsById.set(key, (countsById.get(key) ?? 0) + 1);
+    directCount.set(key, (directCount.get(key) ?? 0) + 1);
   }
 
+  // No locations endpoint → emit a flat list of just the sensor
+  // locations we observe. Each option's subtree is itself.
+  if (!locations) {
+    const flat: LocationOption[] = [];
+    for (const [id, count] of directCount) {
+      if (count === 0) continue;
+      flat.push({
+        id,
+        name: `Lokation #${id}`,
+        count,
+        depth: 0,
+        subtreeIds: new Set([id]),
+      });
+    }
+    return flat;
+  }
+
+  // Legacy returns a nested tree — flatten so deep children are
+  // also indexed.
+  const flatLocations = flattenLocationTree(locations);
+
+  // ── Index the tree ────────────────────────────────────
+  const childrenByParent = new Map<string | null, IndeklimaLocation[]>();
+  for (const location of flatLocations) {
+    const parentKey = locationParentKey(location);
+    const siblings = childrenByParent.get(parentKey);
+    if (siblings) {
+      siblings.push(location);
+    } else {
+      childrenByParent.set(parentKey, [location]);
+    }
+  }
+  for (const siblings of childrenByParent.values()) {
+    siblings.sort(sortLocations);
+  }
+
+  // ── Compute subtree (ids + count) per location ────────
+  // Recursive: subtree(loc) = {loc} ∪ subtree(child) for each child.
+  const subtreeIdsById = new Map<string, Set<string>>();
+  const subtreeCountById = new Map<string, number>();
+  function computeSubtree(loc: IndeklimaLocation): { ids: Set<string>; count: number } {
+    const id = String(loc.id);
+    const cached = subtreeIdsById.get(id);
+    if (cached) {
+      return { ids: cached, count: subtreeCountById.get(id) ?? 0 };
+    }
+    const ids = new Set<string>([id]);
+    let count = directCount.get(id) ?? 0;
+    const kids = childrenByParent.get(id);
+    if (kids) {
+      for (const child of kids) {
+        const sub = computeSubtree(child);
+        for (const cid of sub.ids) ids.add(cid);
+        count += sub.count;
+      }
+    }
+    subtreeIdsById.set(id, ids);
+    subtreeCountById.set(id, count);
+    return { ids, count };
+  }
+  for (const location of flatLocations) computeSubtree(location);
+
+  // ── Render order: DFS, only emit subtrees with sensors ─
   const out: LocationOption[] = [];
   const seen = new Set<string>();
-  if (locations) {
-    const childrenByParent = new Map<string | null, IndeklimaLocation[]>();
-    for (const location of locations) {
-      const parentKey = locationParentKey(location);
-      const siblings = childrenByParent.get(parentKey);
-      if (siblings) {
-        siblings.push(location);
-      } else {
-        childrenByParent.set(parentKey, [location]);
-      }
-    }
-    for (const siblings of childrenByParent.values()) {
-      siblings.sort(sortLocations);
-    }
-
-    const visit = (parentKey: string | null, depth: number) => {
-      const children = childrenByParent.get(parentKey);
-      if (!children) return;
-      for (const location of children) {
-        const id = String(location.id);
-        if (!seen.has(id) && !isGenericLocationName(location.name)) {
-          const count = countsById.get(id) ?? 0;
-          if (count > 0) {
-            seen.add(id);
-            out.push({ id, name: location.name, count, depth });
-          }
-        }
-        visit(id, depth + 1);
-      }
-    };
-
-    visit(null, 0);
-
-    // Be resilient if Legacy returns an orphaned subtree whose parent is
-    // missing from the flat list.
-    for (const location of [...locations].sort(sortLocations)) {
+  const visit = (parentKey: string | null, depth: number) => {
+    const children = childrenByParent.get(parentKey);
+    if (!children) return;
+    for (const location of children) {
       const id = String(location.id);
-      if (seen.has(id) || isGenericLocationName(location.name)) continue;
-      const count = countsById.get(id) ?? 0;
-      if (count === 0) continue;
-      seen.add(id);
-      out.push({ id, name: location.name, count, depth: 0 });
+      const subtreeCount = subtreeCountById.get(id) ?? 0;
+      // Skip generic "General"/"Generel" buckets, but only when
+      // the bucket itself has nothing useful nested inside.
+      const isGeneric = isGenericLocationName(location.name);
+      if (!seen.has(id) && !isGeneric && subtreeCount > 0) {
+        seen.add(id);
+        out.push({
+          id,
+          name: location.name,
+          count: subtreeCount,
+          depth,
+          subtreeIds: subtreeIdsById.get(id) ?? new Set([id]),
+        });
+      }
+      // Recurse into the children so an orphan-parented subtree
+      // still gets rendered (we'll mop up real orphans after the
+      // DFS, but this keeps depths correct for known parents).
+      visit(id, depth + 1);
     }
+  };
+  visit(null, 0);
+
+  // Be resilient if Legacy returns an orphaned subtree whose parent
+  // is missing from the flat list. Render those at depth 0.
+  for (const location of [...flatLocations].sort(sortLocations)) {
+    const id = String(location.id);
+    if (seen.has(id) || isGenericLocationName(location.name)) continue;
+    const subtreeCount = subtreeCountById.get(id) ?? 0;
+    if (subtreeCount === 0) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: location.name,
+      count: subtreeCount,
+      depth: 0,
+      subtreeIds: subtreeIdsById.get(id) ?? new Set([id]),
+    });
   }
-  for (const [id, count] of countsById) {
+
+  // Sensor referencing an unknown location id (no entry from the
+  // locations endpoint at all). Surface it with a fallback name.
+  for (const [id, count] of directCount) {
     if (seen.has(id) || count === 0) continue;
     seen.add(id);
-    out.push({ id, name: `Lokation #${id}`, count, depth: 0 });
+    out.push({
+      id,
+      name: `Lokation #${id}`,
+      count,
+      depth: 0,
+      subtreeIds: new Set([id]),
+    });
   }
   return out;
 }
 
-/** Does a sensor belong to the given location ID? */
+/**
+ * Does a sensor belong to the given selection?
+ * `allowedIds` is the set of location ids the selection covers
+ * (a leaf option's own id, a parent option's whole subtree).
+ * `null` means "no filter".
+ */
 export function sensorMatchesLocation(
   sensor: FlatSensor,
-  locationId: string | null,
+  allowedIds: ReadonlySet<string> | null,
 ): boolean {
-  if (!locationId) return true;
+  if (!allowedIds) return true;
   if (sensor.locationId == null) return false;
-  return String(sensor.locationId) === String(locationId);
+  return allowedIds.has(String(sensor.locationId));
 }

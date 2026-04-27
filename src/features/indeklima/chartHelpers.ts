@@ -46,12 +46,64 @@ export function rangeForAnchor(period: DetailPeriod, anchor: Date) {
 }
 
 /**
+ * Convert a YYYY-MM-DD `from`/`to` pair into the inclusive ms
+ * boundaries `[from 00:00:00, to 23:59:59.999]` so charts that
+ * render absolute time bounds (e.g. the presence chart) can span
+ * the whole period regardless of where data points fall inside it.
+ */
+export function rangeToTimestamps(
+  from: string,
+  to: string,
+): { fromTs: number; toTs: number } {
+  const [fy, fm, fd] = from.split('-').map(Number);
+  const [ty, tm, td] = to.split('-').map(Number);
+  const fromTs = new Date(fy ?? 1970, (fm ?? 1) - 1, fd ?? 1, 0, 0, 0, 0).getTime();
+  const toTs = new Date(ty ?? 1970, (tm ?? 1) - 1, td ?? 1, 23, 59, 59, 999).getTime();
+  return { fromTs, toTs };
+}
+
+/**
  * Hourly-aggregate field name for a given param. Most params use
  * `<param>_avg`, but presence is aggregated as a count via
  * `pir_sum` (number of PIR trigger events during the hour).
  */
 function hourlyKey(param: Param): string {
   return param === 'pir' ? 'pir_sum' : `${param}_avg`;
+}
+
+/**
+ * Resolve a legacy raw reading to a JS epoch (ms).
+ *
+ * Legacy history rows carry both a Unix `timestamp` (seconds) *and*
+ * a `{ date, time }` pair. The two disagree by the local UTC offset:
+ * the legacy backend builds `timestamp` by treating the local
+ * "YYYY-MM-DD HH:MM" as if it were UTC, so `timestamp * 1000`
+ * arrives at a Date whose UTC fields match the local clock — which,
+ * once rendered with `getHours()` on the device, ends up shifted by
+ * the offset (e.g. +2h in CEST). The web app calls this out
+ * explicitly in `services/indeklimaLegacyService.parseReadingTimestamp`.
+ *
+ * So: prefer `date + time` (already in local time) and only fall
+ * back to `timestamp * 1000` for older payloads that lack them.
+ */
+function readingEpoch(r: {
+  date?: string;
+  time?: string;
+  timestamp?: number;
+}): number | null {
+  if (
+    typeof r.date === 'string'
+    && typeof r.time === 'string'
+    && /^\d{4}-\d{2}-\d{2}$/.test(r.date)
+  ) {
+    const timeStr = r.time.length === 5 ? `${r.time}:00` : r.time;
+    const ms = new Date(`${r.date}T${timeStr}`).getTime();
+    if (Number.isFinite(ms)) return ms;
+  }
+  if (typeof r.timestamp === 'number' && Number.isFinite(r.timestamp)) {
+    return r.timestamp * 1000;
+  }
+  return null;
 }
 
 /** Convert the two history response shapes (raw | hourly) into chart points. */
@@ -65,6 +117,9 @@ export function historyToPoints(
     return hist.readings.map((r) => {
       const raw = r[key as keyof typeof r];
       const v = raw == null ? null : typeof raw === 'number' ? raw : Number(raw);
+      // `hour_ts` is already a local-time string ("YYYY-MM-DD HH:00:00")
+      // built from each reading's `date + time` server-side, so parsing
+      // it as local time on the device renders the user's wall clock.
       return {
         t: new Date(r.hour_ts.replace(' ', 'T')).getTime(),
         v: v == null || !Number.isFinite(v) ? null : v,
@@ -72,14 +127,15 @@ export function historyToPoints(
     });
   }
   if (Array.isArray(hist)) {
-    return hist.map((r) => {
+    const out: LinePoint[] = [];
+    for (const r of hist) {
+      const t = readingEpoch(r);
+      if (t == null) continue;
       const raw = r[param];
       const v = raw == null ? null : Number(raw);
-      return {
-        t: r.timestamp * 1000,
-        v: v == null || !Number.isFinite(v) ? null : v,
-      };
-    });
+      out.push({ t, v: v == null || !Number.isFinite(v) ? null : v });
+    }
+    return out;
   }
   return [];
 }

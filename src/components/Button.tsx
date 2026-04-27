@@ -1,8 +1,18 @@
 // ══════════════════════════════════════════════════════════════
 // Button — primary CTA.
 //
-// Variants: primary (brand-accent fill), ghost (text only),
-// danger (status-bad fill). Always ≥ 44 px tall for touch target.
+// Variants: primary (brand-accent fill), secondary (white card),
+// ghost (text only), danger (status-bad fill). Always ≥ 44 px tall
+// for touch target.
+//
+// IMPORTANT: All visual styling lives on the inner <View>. The
+// outer <Pressable> only carries layout/interaction-neutral styles
+// (alignSelf, opacity). This is the documented workaround for the
+// Pressable rendering quirk in Expo SDK 54 + NativeWind v4 where a
+// function-style `style` on Pressable sporadically drops
+// `backgroundColor` / borders / shadows — causing primary buttons
+// to render white-on-white. See `.cursorrules` § "Pressable
+// rendering quirk" and the HeroBackButton / KpiTile primitives.
 // ══════════════════════════════════════════════════════════════
 import { Pressable, Text, ActivityIndicator, View } from 'react-native';
 import type { ReactNode } from 'react';
@@ -47,15 +57,8 @@ export function Button({
     <Pressable
       onPress={dim ? undefined : () => { haptic.light(); onPress?.(); }}
       style={({ pressed }) => ({
-        minHeight: TOUCH_TARGET,
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.sm,
-        backgroundColor: v.bg,
-        borderRadius: radius.md,
-        borderWidth: v.border ? 1 : 0,
-        borderColor: v.border,
-        opacity: dim ? 0.5 : pressed ? 0.85 : 1,
         alignSelf: fullWidth ? 'stretch' : 'flex-start',
+        opacity: dim ? 0.5 : pressed ? 0.85 : 1,
       })}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -63,6 +66,13 @@ export function Button({
     >
       <View
         style={{
+          minHeight: TOUCH_TARGET,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.sm,
+          backgroundColor: v.bg,
+          borderRadius: radius.md,
+          borderWidth: v.border ? 1 : 0,
+          borderColor: v.border ?? 'transparent',
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',

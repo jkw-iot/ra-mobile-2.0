@@ -311,6 +311,78 @@ When building new pressable primitives:
 
 ---
 
+## Architecture & Security — Trusted Subsystem Boundary
+
+The mobile app is a thin client. All identity decisions happen in Hono;
+Legacy is treated as a trusted subsystem that only Hono may speak to.
+
+```
+[Mobile app]  ──HTTPS──>  [Hono v2 API]  ──HTTPS, private VPC──>  [Legacy PHP]
+   Firebase ID-token         INTERNAL_API_SECRET (Bearer)
+   X-Tenant-Id               X-Tenant-ID / X-User-ID (from verified JWT)
+   X-Request-Id              X-Request-Id (forwarded)
+```
+
+Reference implementations:
+- Mobile client: `src/services/api/client.ts` (only ever hits
+  `${env.apiBaseUrl}/api/...`).
+- Hono → Legacy: `../roomalyzer20/server/legacyClient.js`.
+- JWT verification + tenant resolution:
+  `../roomalyzer20/server/middleware/auth.js`.
+
+### Hard rules — do not weaken
+
+- The mobile app **never** calls Legacy directly. There is exactly one
+  base URL (`env.apiBaseUrl`); no Legacy host strings anywhere in `src/`.
+- `INTERNAL_API_SECRET` lives only in Hono's process env. Never read,
+  log, ship, or forward it from anywhere the client can reach.
+- Identity used for data scoping (`X-Tenant-ID`, `X-User-ID`,
+  `X-Agreement-Number`) is derived from the verified Firebase JWT in
+  `resolveTenant`. Legacy MUST ignore identity values arriving in body
+  or query — never reintroduce that pattern in a new route.
+- `resolveTenant` validates the `X-Tenant-Id` header against
+  `user_tenants` (superadmins excepted). Do not bypass that check.
+- On logout, clear: TanStack Query cache + all `roomalyzer_*` storage
+  keys + Firebase session. Already wired in `AuthProvider` — preserve.
+
+### Known gaps — keep in mind when editing auth / middleware
+
+Accepted today, but tighten when you touch the area:
+
+1. **JWT is not tenant-bound.** A leaked Firebase token can be replayed
+   against any tenant the user is a member of by varying `X-Tenant-Id`.
+   If a "tenant session" token is ever introduced, prefer it over the
+   raw Firebase token for tenant-scoped calls.
+2. **Dev bypass via `X-Dev-User-Email`.** `auth.js` falls back to the
+   bypass when `NODE_ENV !== 'production'` — including when Firebase
+   verification fails. Any non-prod environment (preview, staging) MUST
+   set `NODE_ENV=production`. Verify the header is also stripped from
+   the prod CORS `allowHeaders`.
+3. **API-key auth has no user.** `apiKeyAuth` sets `tenantId` but not
+   `user`. A route that calls `legacyRequest` from an API-key context
+   sends `X-User-ID: ""` to Legacy, which breaks audit logging. Decide
+   explicitly: deny, or attribute to a system service-account user.
+4. **Legacy error pass-through.** `legacyRequest` propagates the raw
+   Legacy response on failure. Normalise / redact in the route handler
+   before returning to the client — no PHP stack traces or DB errors
+   to the mobile app.
+5. **No app attestation.** The mobile bundle is not bound via Apple
+   App Attest or Play Integrity. A user with a valid Firebase login can
+   call any endpoint from any client. This is accepted B2B risk — do
+   NOT design endpoints that assume "only our app can reach this".
+
+### On-device storage — what goes where
+
+- Firebase ID + refresh tokens → `expo-secure-store` (Keychain on iOS,
+  EncryptedSharedPreferences on Android). Wired in
+  `src/services/auth/firebase.ts`.
+- MMKV (`src/lib/storage.ts`) is fine for non-secret prefs: active
+  tenant id, active module, last-used period, UI toggles.
+- Never put bearer tokens, API keys, or `INTERNAL_*` values into MMKV
+  or AsyncStorage. Neither is encrypted by default on Android.
+
+---
+
 ## Testing Against External APIs — Safety Rules
 
 When hitting the Hono or Legacy API during development:
