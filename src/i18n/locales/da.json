@@ -62,16 +62,19 @@
     }
   },
   "tenant": {
-    "select_tenant": "Vælg kunde",
-    "select_tenant_subtitle": "Du har adgang til flere tenants. Vælg hvilken du vil bruge nu.",
-    "active": "Aktiv",
-    "switch": "Skift tenant"
+    "select_tenant": "Vælg aftale",
+    "select_tenant_subtitle": "Du har adgang til flere aftaler. Vælg hvilken du vil bruge nu.",
+    "select_tenant_greeting": "Hej {{name}}, vælg en aftale",
+    "active": "Aktiv aftale",
+    "switch": "Skift aftale"
   },
   "home": {
     "title": "Oversigt",
     "subtitle": "Seneste status for dine sensorer",
+    "multi_tenant_subtitle": "Vælg hvilken aftale du vil se data for.",
     "choose_module": "Vælg modul",
     "module_unavailable": "Dette modul er ikke tilgængeligt i mobil-appen endnu",
+    "module_active": "Aktiv",
     "greeting": "Hej {{name}}",
     "modules_coming_soon": "Flere moduler er på vej — Bevaring, Vanddetektering og Space Management"
   },
@@ -84,7 +87,19 @@
       "empty": "Ingen sensorer fundet",
       "empty_subtitle": "Der er endnu ikke tilknyttet indeklima-sensorer til denne tenant.",
       "search_placeholder": "Søg i sensorer...",
-      "all_locations": "Alle lokationer"
+      "all_locations": "Alle lokationer",
+      "no_locations": "Ingen lokationer",
+      "silent": "Tavs",
+      "silent_hint": "Ikke hørt fra i over 48 timer",
+      "within_range": "Indenfor",
+      "above_range": "Over grænse",
+      "below_range": "Under grænse",
+      "trend_rising": "Stigende",
+      "trend_falling": "Faldende",
+      "presence": {
+        "occupied": "Optaget",
+        "vacant": "Ledig"
+      }
     },
     "alerts": {
       "title": "Alarmer",
@@ -105,16 +120,46 @@
         "temp": "Temperatur",
         "hum": "Luftfugtighed",
         "co2": "CO₂",
-        "voc": "VOC"
+        "voc": "VOC",
+        "pir": "Tilstedeværelse"
       },
+      "param_short": {
+        "temp": "Temp",
+        "hum": "Fugt",
+        "co2": "CO₂",
+        "voc": "VOC",
+        "pir": "Tilstede"
+      },
+      "primary_param": "Vis parameter",
       "last_update": "Sidst opdateret",
+      "last_measurement": "Seneste måling",
+      "measurement_at": "Målt {{when}}",
+      "prev_period": "Forrige periode",
+      "next_period": "Næste periode",
+      "open_fullscreen": "Åbn graf i fuld skærm",
+      "range_today": "I dag",
+      "no_history": "Ingen målinger i denne periode",
+      "error_title": "Kunne ikke hente sensor",
+      "error_description": "Vi kan ikke hente data for denne sensor lige nu.",
       "battery": "Batteri",
-      "signal": "Signal"
+      "signal": "Signal",
+      "coverage": {
+        "excellent": "Meget god",
+        "good": "God",
+        "medium": "Middel",
+        "poor": "Dårlig",
+        "none": "Ingen"
+      }
+    },
+    "location_filter": {
+      "all": "Alle",
+      "label": "Lokation",
+      "no_location": "Uden lokation"
     }
   },
   "profile": {
     "title": "Profil",
-    "subtitle": "Konto, tenant og indstillinger",
+    "subtitle": "Konto, aftale og indstillinger",
     "language": "Sprog",
     "account": "Konto",
     "app_version": "App-version"

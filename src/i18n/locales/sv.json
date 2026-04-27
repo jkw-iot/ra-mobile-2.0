@@ -64,14 +64,17 @@
   "tenant": {
     "select_tenant": "Välj kund",
     "select_tenant_subtitle": "Du har tillgång till flera kunder. Välj vilken du vill använda nu.",
-    "active": "Aktiv",
+    "select_tenant_greeting": "Hej {{name}}, välj kund",
+    "active": "Aktiv kund",
     "switch": "Byt kund"
   },
   "home": {
     "title": "Översikt",
     "subtitle": "Senaste status för dina sensorer",
+    "multi_tenant_subtitle": "Välj vilken kund du vill se data för.",
     "choose_module": "Välj modul",
     "module_unavailable": "Den här modulen är inte tillgänglig i mobilappen än",
+    "module_active": "Aktiv",
     "greeting": "Hej {{name}}",
     "modules_coming_soon": "Fler moduler på väg — Bevarande, Vattendetektering och Space Management"
   },
@@ -84,7 +87,19 @@
       "empty": "Inga sensorer hittades",
       "empty_subtitle": "Det finns inga inomhusklimat-sensorer kopplade till denna kund än.",
       "search_placeholder": "Sök sensorer...",
-      "all_locations": "Alla platser"
+      "all_locations": "Alla platser",
+      "no_locations": "Inga platser",
+      "silent": "Tyst",
+      "silent_hint": "Ingen data mottagen på över 48 timmar",
+      "within_range": "Inom gränser",
+      "above_range": "Över gräns",
+      "below_range": "Under gräns",
+      "trend_rising": "Stigande",
+      "trend_falling": "Fallande",
+      "presence": {
+        "occupied": "Upptagen",
+        "vacant": "Ledig"
+      }
     },
     "alerts": {
       "title": "Larm",
@@ -105,11 +120,41 @@
         "temp": "Temperatur",
         "hum": "Luftfuktighet",
         "co2": "CO₂",
-        "voc": "VOC"
+        "voc": "VOC",
+        "pir": "Närvaro"
       },
+      "param_short": {
+        "temp": "Temp",
+        "hum": "Fukt",
+        "co2": "CO₂",
+        "voc": "VOC",
+        "pir": "Närvaro"
+      },
+      "primary_param": "Visa parameter",
       "last_update": "Senast uppdaterad",
+      "last_measurement": "Senaste mätning",
+      "measurement_at": "Mätt {{when}}",
+      "prev_period": "Föregående period",
+      "next_period": "Nästa period",
+      "open_fullscreen": "Öppna graf i helskärm",
+      "range_today": "I dag",
+      "no_history": "Inga mätningar i perioden",
+      "error_title": "Kunde inte hämta sensor",
+      "error_description": "Vi kan inte hämta data för den här sensorn just nu.",
       "battery": "Batteri",
-      "signal": "Signal"
+      "signal": "Signal",
+      "coverage": {
+        "excellent": "Mycket bra",
+        "good": "Bra",
+        "medium": "Medel",
+        "poor": "Dålig",
+        "none": "Ingen"
+      }
+    },
+    "location_filter": {
+      "all": "Alla",
+      "label": "Plats",
+      "no_location": "Ingen plats"
     }
   },
   "profile": {

@@ -1,9 +1,9 @@
 // ══════════════════════════════════════════════════════════════
-// AppDrawer — slide-in side sheet triggered from AppHeader's burger.
+// AppDrawer — slide-in side sheet triggered by AppHeader's burger.
 //
-// Contains: active tenant (with switch action), language picker,
-// sign-out. Replaces the old module-grid home screen as the place
-// where cross-cutting settings live.
+// Primary job: pick the active tenant. Module switching lives on Home.
+// Secondary: language picker and sign-out button so users always have
+// a visible way to log out without drilling into the Profile tab.
 // ══════════════════════════════════════════════════════════════
 import { useState } from 'react';
 import { Modal, Pressable, View, Text, ScrollView } from 'react-native';
@@ -12,19 +12,76 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, spacing, type } from '@/theme';
-import { useAuth } from '@/services/auth/AuthProvider';
+import { useAuth, type Tenant } from '@/services/auth/AuthProvider';
 import { useTenantStore } from '@/stores/tenantStore';
 import { setLanguage, SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/i18n';
 import { Icon } from './Icon';
-import { StatusDot } from './StatusDot';
 import { SegmentedControl } from './SegmentedControl';
 import { Button } from './Button';
 import { ConfirmModal } from './ConfirmModal';
 import { Logo } from './Logo';
+import { haptic } from '@/lib/haptics';
 
 export interface AppDrawerProps {
   open: boolean;
   onClose: () => void;
+}
+
+function TenantRow({
+  tenant,
+  isActive,
+  onPress,
+}: {
+  tenant: Tenant;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
+      accessibilityLabel={tenant.name}
+      style={({ pressed }) => ({
+        minHeight: 72,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        padding: spacing.md,
+        borderRadius: radius.lg,
+        backgroundColor: isActive
+          ? 'rgba(52,152,219,0.12)'
+          : pressed
+            ? colors.gray[50]
+            : colors.white,
+        borderWidth: 1,
+        borderColor: isActive ? 'rgba(52,152,219,0.35)' : colors.gray[200],
+      })}
+    >
+      <View
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: radius.md,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: isActive ? 'rgba(52,152,219,0.16)' : colors.gray[100],
+        }}
+      >
+        <Icon name="building" color={isActive ? colors.brandAccent : colors.brand} size={20} />
+      </View>
+      <Text
+        style={[type.bodyStrong, {
+          flex: 1,
+          fontSize: 17,
+          color: isActive ? colors.brandAccent : colors.brandDark,
+        }]}
+        numberOfLines={2}
+      >
+        {tenant.name}
+      </Text>
+    </Pressable>
+  );
 }
 
 export function AppDrawer({ open, onClose }: AppDrawerProps) {
@@ -32,7 +89,7 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
   const router = useRouter();
   const { tenants, user, logout } = useAuth();
   const activeTenantId = useTenantStore((s) => s.activeTenantId);
-  const activeTenant = tenants.find((ten) => ten.id === activeTenantId);
+  const setActiveTenant = useTenantStore((s) => s.setActiveTenant);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   const langOptions = SUPPORTED_LANGUAGES.map((code) => ({
@@ -40,12 +97,15 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
     label: code.toUpperCase(),
   }));
 
-  const goSwitchTenant = () => {
+  const pickTenant = (tenantId: number) => {
+    haptic.medium();
+    setActiveTenant(tenantId);
     onClose();
-    router.push('/select-tenant');
+    router.push('/(tabs)/sensors');
   };
 
   const doLogout = async () => {
+    haptic.error();
     setConfirmSignOut(false);
     onClose();
     await logout();
@@ -65,15 +125,15 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
               top: 0,
               bottom: 0,
               right: 0,
-              width: '80%',
-              maxWidth: 360,
+              width: '86%',
+              maxWidth: 380,
               backgroundColor: colors.bgPrimary,
               borderLeftWidth: 1,
               borderLeftColor: colors.gray[200],
             }}
           >
             <SafeAreaView style={{ flex: 1 }} edges={['top', 'right', 'bottom']}>
-              {/* Header row */}
+              {/* Header row — dark chrome matches AppHeader */}
               <View
                 style={{
                   flexDirection: 'row',
@@ -81,12 +141,10 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
                   justifyContent: 'space-between',
                   paddingHorizontal: spacing.md,
                   paddingVertical: spacing.sm,
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.gray[200],
-                  backgroundColor: colors.white,
+                  backgroundColor: colors.navy,
                 }}
               >
-                <Logo width={120} />
+                <Logo width={120} variant="white" />
                 <Pressable
                   onPress={onClose}
                   hitSlop={8}
@@ -98,92 +156,53 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
                     alignItems: 'center',
                     justifyContent: 'center',
                     borderRadius: 999,
-                    backgroundColor: pressed ? colors.gray[100] : 'transparent',
+                    backgroundColor: pressed ? 'rgba(255,255,255,0.15)' : 'transparent',
                   })}
                 >
-                  <Icon name="x" color={colors.gray[600]} size={22} />
+                  <Icon name="x" color={colors.white} size={22} />
                 </Pressable>
               </View>
 
               <ScrollView
-                contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}
+                contentContainerStyle={{
+                  padding: spacing.md,
+                  paddingBottom: spacing.xl,
+                  gap: spacing.md,
+                }}
               >
-                {/* Account */}
+                {/* Greeting / account chip (compact) */}
                 <View
                   style={{
                     backgroundColor: colors.modalHeader,
                     borderRadius: radius.lg,
                     padding: spacing.md,
-                    gap: 4,
                   }}
                 >
-                  <Text style={type.sectionLabel}>{t('profile.account')}</Text>
-                  <Text style={[type.bodyStrong, { color: colors.brandDark }]}>
+                  <Text style={type.sectionLabel}>
+                    {t('profile.account')}
+                  </Text>
+                  <Text
+                    style={[type.bodyStrong, { color: colors.brandDark }]}
+                    numberOfLines={1}
+                  >
                     {user?.name ?? user?.email ?? '—'}
                   </Text>
-                  {user?.email && user?.name ? (
-                    <Text style={type.caption}>{user.email}</Text>
-                  ) : null}
                 </View>
 
-                {/* Tenant */}
+                {/* Tenant switcher */}
                 {tenants.length > 0 ? (
-                  <View
-                    style={{
-                      backgroundColor: colors.white,
-                      borderRadius: radius.lg,
-                      borderWidth: 1,
-                      borderColor: colors.gray[200],
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <View
-                      style={{
-                        paddingHorizontal: spacing.md,
-                        paddingTop: spacing.sm,
-                      }}
-                    >
-                      <Text style={type.sectionLabel}>{t('tenant.active')}</Text>
-                    </View>
-                    <Pressable
-                      disabled={tenants.length <= 1}
-                      onPress={goSwitchTenant}
-                      style={({ pressed }) => ({
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: spacing.sm,
-                        padding: spacing.md,
-                        backgroundColor: pressed ? colors.gray[50] : 'transparent',
-                      })}
-                    >
-                      <StatusDot tone="good" />
-                      <Text
-                        style={[type.body, { flex: 1, color: colors.brandDark }]}
-                        numberOfLines={1}
-                      >
-                        {activeTenant?.name ?? '—'}
-                      </Text>
-                      {tenants.length > 1 ? (
-                        <View
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
-                        >
-                          <Text
-                            style={[type.caption, { color: colors.brandAccent }]}
-                          >
-                            {t('tenant.switch')}
-                          </Text>
-                          <Icon
-                            name="chevron-right"
-                            color={colors.brandAccent}
-                            size={16}
-                          />
-                        </View>
-                      ) : null}
-                    </Pressable>
+                  <View style={{ gap: spacing.sm }}>
+                    <Text style={[type.sectionLabel, { paddingHorizontal: 4 }]}>
+                      {t('tenant.select_tenant').toUpperCase()}
+                    </Text>
+                    {tenants.map((tenant) => (
+                      <TenantRow
+                        key={tenant.id}
+                        tenant={tenant}
+                        isActive={tenant.id === activeTenantId}
+                        onPress={() => pickTenant(tenant.id)}
+                      />
+                    ))}
                   </View>
                 ) : null}
 
@@ -208,15 +227,13 @@ export function AppDrawer({ open, onClose }: AppDrawerProps) {
                 </View>
 
                 {/* Sign out */}
-                <View style={{ marginTop: spacing.sm }}>
-                  <Button
-                    label={t('auth.sign_out')}
-                    icon="box-arrow-right"
-                    variant="danger"
-                    fullWidth
-                    onPress={() => setConfirmSignOut(true)}
-                  />
-                </View>
+                <Button
+                  label={t('auth.sign_out')}
+                  icon="box-arrow-right"
+                  variant="danger"
+                  fullWidth
+                  onPress={() => setConfirmSignOut(true)}
+                />
               </ScrollView>
             </SafeAreaView>
           </Pressable>

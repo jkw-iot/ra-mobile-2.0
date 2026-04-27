@@ -46,6 +46,10 @@ const ICON_MAP: Record<string, MciName> = {
   'dash': 'minus',
   'three-dots': 'dots-horizontal',
   'three-dots-vertical': 'dots-vertical',
+  'arrows-fullscreen': 'fullscreen',
+  'fullscreen': 'fullscreen',
+  'fullscreen-exit': 'fullscreen-exit',
+  'arrow-expand': 'arrow-expand',
 
   // Status / indicators
   'circle-fill': 'circle',
@@ -88,6 +92,18 @@ const ICON_MAP: Record<string, MciName> = {
   'battery': 'battery',
   'battery-half': 'battery-50',
   'battery-full': 'battery',
+  // Battery level icons (0-3 — maps to the legacy "battery" field).
+  'battery-empty': 'battery-alert',
+  'battery-low': 'battery-30',
+  'battery-medium': 'battery-60',
+  'battery-high': 'battery',
+  // Signal / coverage bars (0-4 — maps to the "coverage" field).
+  // MCI tops out at 3 bars; we use the same glyph for 3 and 4.
+  'signal-0': 'signal-cellular-outline',
+  'signal-1': 'signal-cellular-1',
+  'signal-2': 'signal-cellular-2',
+  'signal-3': 'signal-cellular-3',
+  'signal-4': 'signal-cellular-3',
   'lightning': 'lightning-bolt',
 
   // Charts / data
@@ -103,6 +119,7 @@ const ICON_MAP: Record<string, MciName> = {
   'door-open': 'door-open',
   'door-closed': 'door-closed',
   'geo-alt': 'map-marker-outline',
+  'geo-alt-fill': 'map-marker',
   'map': 'map-outline',
   'layout-text-window': 'view-dashboard-outline',
 

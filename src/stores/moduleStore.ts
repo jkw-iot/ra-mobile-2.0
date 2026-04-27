@@ -41,8 +41,10 @@ interface ModuleState {
 }
 
 function readInitial(): ModuleSlug {
-  const raw = storage.getString(StorageKeys.ACTIVE_MODULE);
-  const isValid = MODULES.some((m) => m.slug === raw && m.available);
+  const raw = storage.getString(StorageKeys.ACTIVE_MODULE)?.trim();
+  const isValid =
+    Boolean(raw) &&
+    MODULES.some((m) => m.slug === raw && m.available);
   return isValid ? (raw as ModuleSlug) : 'indeklima';
 }
 

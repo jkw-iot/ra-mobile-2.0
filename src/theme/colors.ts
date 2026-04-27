@@ -10,6 +10,12 @@ export const colors = {
   brandAccent: '#3498DB',
   brandDark: '#2C3E50',
 
+  // Dark chrome — used for the app header, drawer header and other
+  // "navigation" surfaces. Mirrors the web app's navbar so the mobile
+  // feels instantly familiar to existing users.
+  navy: '#1F2D3D',
+  navySoft: '#2A3B50',
+
   bgPrimary: '#F4F6F9',
   modalHeader: '#EBF5FB',
 

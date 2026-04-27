@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 
 import { colors, radius, spacing, TOUCH_TARGET, type } from '@/theme';
 import { Icon } from './Icon';
+import { haptic } from '@/lib/haptics';
 
 export type ButtonVariant = 'primary' | 'ghost' | 'danger' | 'secondary';
 
@@ -44,7 +45,7 @@ export function Button({
 
   return (
     <Pressable
-      onPress={dim ? undefined : onPress}
+      onPress={dim ? undefined : () => { haptic.light(); onPress?.(); }}
       style={({ pressed }) => ({
         minHeight: TOUCH_TARGET,
         paddingHorizontal: spacing.lg,

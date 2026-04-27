@@ -5,6 +5,7 @@ import { View, Text, Pressable } from 'react-native';
 
 import { colors, radius, spacing, type } from '@/theme';
 import { Icon } from './Icon';
+import { haptic } from '@/lib/haptics';
 
 export interface SegmentedOption<T extends string> {
   id: T;
@@ -44,7 +45,7 @@ export function SegmentedControl<T extends string>({
         return (
           <Pressable
             key={opt.id}
-            onPress={() => onChange(opt.id)}
+            onPress={() => { haptic.select(); onChange(opt.id); }}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             accessibilityLabel={opt.label}

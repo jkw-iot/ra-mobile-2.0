@@ -63,15 +63,18 @@
   },
   "tenant": {
     "select_tenant": "Kunde wählen",
-    "select_tenant_subtitle": "Sie haben Zugriff auf mehrere Mandanten. Bitte auswählen.",
-    "active": "Aktiv",
-    "switch": "Mandant wechseln"
+    "select_tenant_subtitle": "Sie haben Zugriff auf mehrere Kunden. Bitte auswählen.",
+    "select_tenant_greeting": "Hallo {{name}}, Kunde wählen",
+    "active": "Aktiver Kunde",
+    "switch": "Kunde wechseln"
   },
   "home": {
     "title": "Übersicht",
     "subtitle": "Aktueller Status Ihrer Sensoren",
+    "multi_tenant_subtitle": "Wählen Sie den Kunden, dessen Daten angezeigt werden sollen.",
     "choose_module": "Modul wählen",
     "module_unavailable": "Dieses Modul ist in der Mobile-App noch nicht verfügbar",
+    "module_active": "Aktiv",
     "greeting": "Hallo {{name}}",
     "modules_coming_soon": "Weitere Module kommen bald — Bewahrung, Wasser-Erkennung und Space Management"
   },
@@ -84,7 +87,19 @@
       "empty": "Keine Sensoren gefunden",
       "empty_subtitle": "Für diesen Mandanten sind noch keine Raumklima-Sensoren hinterlegt.",
       "search_placeholder": "Sensoren suchen...",
-      "all_locations": "Alle Standorte"
+      "all_locations": "Alle Standorte",
+      "no_locations": "Keine Standorte",
+      "silent": "Stumm",
+      "silent_hint": "Seit über 48 Stunden keine Daten",
+      "within_range": "Im Bereich",
+      "above_range": "Über Grenzwert",
+      "below_range": "Unter Grenzwert",
+      "trend_rising": "Steigend",
+      "trend_falling": "Fallend",
+      "presence": {
+        "occupied": "Besetzt",
+        "vacant": "Frei"
+      }
     },
     "alerts": {
       "title": "Alarme",
@@ -105,16 +120,46 @@
         "temp": "Temperatur",
         "hum": "Luftfeuchtigkeit",
         "co2": "CO₂",
-        "voc": "VOC"
+        "voc": "VOC",
+        "pir": "Anwesenheit"
       },
+      "param_short": {
+        "temp": "Temp",
+        "hum": "Feuchte",
+        "co2": "CO₂",
+        "voc": "VOC",
+        "pir": "Anwes."
+      },
+      "primary_param": "Parameter anzeigen",
       "last_update": "Zuletzt aktualisiert",
+      "last_measurement": "Letzte Messung",
+      "measurement_at": "Gemessen {{when}}",
+      "prev_period": "Vorheriger Zeitraum",
+      "next_period": "Nächster Zeitraum",
+      "open_fullscreen": "Vollbildansicht öffnen",
+      "range_today": "Heute",
+      "no_history": "Keine Messwerte im Zeitraum",
+      "error_title": "Sensor konnte nicht geladen werden",
+      "error_description": "Die Sensordaten sind gerade nicht verfügbar.",
       "battery": "Batterie",
-      "signal": "Signal"
+      "signal": "Signal",
+      "coverage": {
+        "excellent": "Sehr gut",
+        "good": "Gut",
+        "medium": "Mittel",
+        "poor": "Schlecht",
+        "none": "Keine"
+      }
+    },
+    "location_filter": {
+      "all": "Alle",
+      "label": "Standort",
+      "no_location": "Ohne Standort"
     }
   },
   "profile": {
     "title": "Profil",
-    "subtitle": "Konto, Mandant und Einstellungen",
+    "subtitle": "Konto, Kunde und Einstellungen",
     "language": "Sprache",
     "account": "Konto",
     "app_version": "App-Version"

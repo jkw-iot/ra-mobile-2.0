@@ -249,9 +249,30 @@ equivalent markup:
 - `<ErrorBanner>` — dismissible page-level error / warning
 - `<ConfirmModal>` — bottom-sheet for destructive / dangerous confirmations
 - `<Button variant="primary|ghost|danger">` — all CTA
+- `<HeroBackButton label="..." onPress={...} />` — dusty-brand pill
+  back button for dark hero headers on inner detail pages
+- `<KpiTile label="..." value="..." unit="..." icon="..." active={...}
+  onPress={...} />` — white rounded metric tile for 2×2 (or 1–4) grids.
+  Parent must be a `flexDirection: 'row'` row; tile takes `flex: 1`.
 
 If a needed variant is missing, extend the primitive — do NOT fork inside
 a feature.
+
+### Pressable rendering quirk — IMPORTANT
+In this Expo SDK 54 + NativeWind v4 setup, **function-style `style`**
+on `<Pressable>` has been observed to sporadically drop
+`backgroundColor`, `borderWidth/borderColor`, and shadow properties at
+render time, leaving the inner content visible on a transparent square.
+
+When building new pressable primitives:
+- Apply only layout-neutral styles to the `<Pressable>` itself (e.g.
+  `flex: 1`, `alignSelf`, `opacity` for pressed feedback, `transform`).
+- Put the actual visual styling — background, borders, shadows,
+  padding — on an inner `<View>`.
+- Prefer `haptic.*()` inside the `onPress` callback over relying on the
+  pressed-state style function for feedback.
+
+`HeroBackButton` and `KpiTile` are the reference implementations.
 
 ### Mobile-specific rules
 - Respect the safe area on every screen (`SafeAreaView` or

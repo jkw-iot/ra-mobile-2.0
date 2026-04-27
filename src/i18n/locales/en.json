@@ -63,15 +63,18 @@
   },
   "tenant": {
     "select_tenant": "Select customer",
-    "select_tenant_subtitle": "You have access to multiple tenants. Pick which one to use now.",
-    "active": "Active",
-    "switch": "Switch tenant"
+    "select_tenant_subtitle": "You have access to multiple customers. Pick which one to use now.",
+    "select_tenant_greeting": "Hi {{name}}, pick a customer",
+    "active": "Active customer",
+    "switch": "Switch customer"
   },
   "home": {
     "title": "Overview",
     "subtitle": "Latest status of your sensors",
+    "multi_tenant_subtitle": "Pick the customer you want to view data for.",
     "choose_module": "Choose module",
     "module_unavailable": "This module is not yet available in the mobile app",
+    "module_active": "Active",
     "greeting": "Hi {{name}}",
     "modules_coming_soon": "More modules coming soon — Preservation, Water Detection and Space Management"
   },
@@ -84,7 +87,19 @@
       "empty": "No sensors found",
       "empty_subtitle": "No indoor-climate sensors are linked to this tenant yet.",
       "search_placeholder": "Search sensors...",
-      "all_locations": "All locations"
+      "all_locations": "All locations",
+      "no_locations": "No locations",
+      "silent": "Silent",
+      "silent_hint": "No data received for over 48 hours",
+      "within_range": "Within range",
+      "above_range": "Above limit",
+      "below_range": "Below limit",
+      "trend_rising": "Rising",
+      "trend_falling": "Falling",
+      "presence": {
+        "occupied": "Occupied",
+        "vacant": "Vacant"
+      }
     },
     "alerts": {
       "title": "Alerts",
@@ -105,16 +120,46 @@
         "temp": "Temperature",
         "hum": "Humidity",
         "co2": "CO₂",
-        "voc": "VOC"
+        "voc": "VOC",
+        "pir": "Presence"
       },
+      "param_short": {
+        "temp": "Temp",
+        "hum": "Hum",
+        "co2": "CO₂",
+        "voc": "VOC",
+        "pir": "Presence"
+      },
+      "primary_param": "Display parameter",
       "last_update": "Last update",
+      "last_measurement": "Latest reading",
+      "measurement_at": "Measured {{when}}",
+      "prev_period": "Previous period",
+      "next_period": "Next period",
+      "open_fullscreen": "Open graph fullscreen",
+      "range_today": "Today",
+      "no_history": "No readings in this period",
+      "error_title": "Could not load sensor",
+      "error_description": "We can't fetch data for this sensor right now.",
       "battery": "Battery",
-      "signal": "Signal"
+      "signal": "Signal",
+      "coverage": {
+        "excellent": "Very good",
+        "good": "Good",
+        "medium": "Medium",
+        "poor": "Poor",
+        "none": "None"
+      }
+    },
+    "location_filter": {
+      "all": "All",
+      "label": "Location",
+      "no_location": "No location"
     }
   },
   "profile": {
     "title": "Profile",
-    "subtitle": "Account, tenant and settings",
+    "subtitle": "Account, customer and settings",
     "language": "Language",
     "account": "Account",
     "app_version": "App version"

@@ -1,21 +1,20 @@
 // ══════════════════════════════════════════════════════════════
-// Profile — account info, language, tenant switch, logout.
+// Profile — account info, language, logout.
+// Navy hero with avatar initial, clean card layout below.
+// The active tenant is shown as an info chip in the hero but
+// cannot be changed from here (see `/select-tenant` on sign-in).
 // ══════════════════════════════════════════════════════════════
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
-import { useRouter } from 'expo-router';
 
 import {
-  PageHeading,
-  SectionCard,
   SegmentedControl,
   ConfirmModal,
   Button,
   Icon,
-  StatusDot,
   AppHeader,
 } from '@/components';
 import { colors, radius, spacing, type } from '@/theme';
@@ -25,7 +24,6 @@ import { setLanguage, SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/i18n
 
 export default function ProfileScreen() {
   const { t, i18n } = useTranslation();
-  const router = useRouter();
   const { user, tenants, logout } = useAuth();
   const activeTenantId = useTenantStore((s) => s.activeTenantId);
   const activeTenant = tenants.find((ten) => ten.id === activeTenantId);
@@ -36,90 +34,118 @@ export default function ProfileScreen() {
     label: code.toUpperCase(),
   }));
 
+  const displayName = user?.name ?? user?.email ?? '—';
+  const initial = displayName.charAt(0).toUpperCase();
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }} edges={['bottom']}>
       <AppHeader />
-      <PageHeading
-        icon="person"
-        title={t('profile.title')}
-        subtitle={t('profile.subtitle')}
-      />
-      <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
-        {/* Tinted "account" card so the page has more colour than white-on-white */}
+
+      {/* Navy hero with avatar */}
+      <View
+        style={{
+          backgroundColor: colors.navy,
+          paddingHorizontal: spacing.md,
+          paddingTop: spacing.lg,
+          paddingBottom: spacing.xl,
+          alignItems: 'center',
+          gap: spacing.sm,
+        }}
+      >
         <View
           style={{
-            backgroundColor: colors.modalHeader,
-            borderRadius: radius.lg,
-            padding: spacing.md,
-            gap: 4,
-            borderWidth: 1,
-            borderColor: colors.gray[200],
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: colors.brandAccent,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          <Text style={type.sectionLabel}>{t('profile.account')}</Text>
-          <Text style={[type.bodyStrong, { color: colors.brandDark }]}>
-            {user?.name ?? user?.email ?? '—'}
+          <Text style={{ fontSize: 24, fontWeight: '700', color: colors.white }}>
+            {initial}
           </Text>
-          {user?.email && user?.name ? (
-            <Text style={type.caption}>{user.email}</Text>
-          ) : null}
         </View>
-
-        {tenants.length > 0 ? (
-          <SectionCard title={t('tenant.active')} icon="building" padding={0}>
-            <Pressable
-              onPress={() => router.push('/select-tenant')}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: spacing.sm,
-                padding: spacing.md,
-                backgroundColor: pressed ? colors.gray[50] : 'transparent',
-              })}
-              accessibilityRole="button"
-              accessibilityLabel={t('tenant.switch')}
-            >
-              <StatusDot tone="good" />
-              <Text style={[type.body, { flex: 1, color: colors.brandDark }]}>
-                {activeTenant?.name ?? '—'}
-              </Text>
-              {tenants.length > 1 ? (
-                <Icon name="chevron-right" color={colors.gray[400]} size={18} />
-              ) : null}
-            </Pressable>
-          </SectionCard>
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: '700',
+            color: colors.white,
+            letterSpacing: -0.3,
+          }}
+          numberOfLines={1}
+        >
+          {displayName}
+        </Text>
+        {user?.email && user?.name ? (
+          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+            {user.email}
+          </Text>
         ) : null}
+        {activeTenant ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 2,
+              paddingHorizontal: 12,
+              paddingVertical: 4,
+              borderRadius: radius.full,
+              backgroundColor: 'rgba(255,255,255,0.1)',
+            }}
+          >
+            <Icon name="building" color="rgba(255,255,255,0.7)" size={12} />
+            <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: '600' }}>
+              {activeTenant.name}
+            </Text>
+          </View>
+        ) : null}
+      </View>
 
-        <SectionCard title={t('profile.language')} icon="sliders">
+      <ScrollView
+        contentContainerStyle={{
+          padding: spacing.md,
+          paddingBottom: spacing.xl + 80,
+          gap: spacing.md,
+        }}
+      >
+        {/* Language */}
+        <View
+          style={{
+            backgroundColor: colors.white,
+            borderRadius: radius.lg,
+            borderWidth: 1,
+            borderColor: colors.gray[200],
+            padding: spacing.md,
+            gap: spacing.sm,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Icon name="sliders" color={colors.brand} size={14} />
+            <Text style={type.sectionLabel}>{t('profile.language')}</Text>
+          </View>
           <SegmentedControl
             value={i18n.language as SupportedLanguage}
             onChange={(lang) => setLanguage(lang as SupportedLanguage)}
             options={langOptions}
             ariaLabel={t('profile.language')}
           />
-        </SectionCard>
-
-        <SectionCard title={t('profile.app_version')} icon="info-circle">
-          <Text style={type.body}>{Constants.expoConfig?.version ?? '—'}</Text>
-        </SectionCard>
-
-        <View
-          style={{
-            backgroundColor: colors.white,
-            borderRadius: radius.lg,
-            padding: spacing.md,
-            borderWidth: 1,
-            borderColor: colors.gray[200],
-          }}
-        >
-          <Button
-            label={t('auth.sign_out')}
-            icon="box-arrow-right"
-            variant="danger"
-            onPress={() => setConfirmOpen(true)}
-            fullWidth
-          />
         </View>
+
+        {/* Sign out */}
+        <Button
+          label={t('auth.sign_out')}
+          icon="box-arrow-right"
+          variant="danger"
+          onPress={() => setConfirmOpen(true)}
+          fullWidth
+        />
+
+        {/* Version as subtle caption */}
+        <Text style={[type.caption, { textAlign: 'center', marginTop: spacing.sm }]}>
+          {t('profile.app_version')}: {Constants.expoConfig?.version ?? '—'}
+        </Text>
       </ScrollView>
 
       <ConfirmModal
