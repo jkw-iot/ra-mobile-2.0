@@ -121,5 +121,6 @@ export const StorageKeys = {
   QUERY_CACHE: 'roomalyzer_query_cache',
   LAST_DETAIL_PERIOD: 'roomalyzer_last_detail_period',
   LAST_SENSOR_LIST_LOCATIONS: 'roomalyzer_last_sensor_list_locations',
+  LAST_WATER_MAP_LOCATIONS: 'roomalyzer_last_water_map_locations',
   // Firebase refresh token lives in SecureStore, NOT here.
 } as const;

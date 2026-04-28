@@ -6,6 +6,7 @@
 // the MODULES array below.
 // ══════════════════════════════════════════════════════════════
 import { create } from 'zustand';
+import type { Href } from 'expo-router';
 
 import { storage, StorageKeys } from '@/lib/storage';
 
@@ -36,7 +37,7 @@ export interface ModuleDef {
    * as a safe fallback for unbuilt modules until each one gets
    * its own home.
    */
-  primaryRoute: string;
+  primaryRoute: Href;
 }
 
 export const MODULES: readonly ModuleDef[] = [
@@ -55,7 +56,7 @@ export const MODULES: readonly ModuleDef[] = [
  * if the slug doesn't match any registered module (defensive for
  * stale persisted state).
  */
-export function getModulePrimaryRoute(slug: ModuleSlug): string {
+export function getModulePrimaryRoute(slug: ModuleSlug): Href {
   return (
     MODULES.find((m) => m.slug === slug)?.primaryRoute ?? '/(tabs)/sensors'
   );

@@ -107,6 +107,7 @@
       "below_range": "Below limit",
       "trend_rising": "Rising",
       "trend_falling": "Falling",
+      "trend_flat": "Flat",
       "presence": {
         "occupied": "Occupied",
         "vacant": "Vacant"
@@ -196,8 +197,8 @@
     "dashboard": {
       "title": "Dashboard",
       "subtitle": "Water detection status — refreshes every 10 seconds",
-      "no_sensors": "No water sensors",
-      "no_sensors_subtitle": "No water-detection sensors are registered for this customer yet.",
+      "no_sensors": "No active water sensors",
+      "no_sensors_subtitle": "Water detection is enabled for this customer, but there are no active sensors that support the module. Activate or assign the sensors in the web app to use water detection on mobile.",
       "live_feed": "Live activity",
       "auto_refresh": "Auto-refreshing",
       "all_good": "All good",
@@ -211,7 +212,6 @@
       },
       "kpi_alarm_desc": "Action required",
       "kpi_dry_unacked_desc": "Dry — pending ack",
-      "kpi_dry_unacked_sub": "{{count}} dry awaiting ack",
       "kpi_silent_desc": "No data for over {{h}} h",
       "kpi_response_desc": "Time since alarm triggered",
       "kpi_battery_desc": "Sensors below 20% battery",
@@ -224,9 +224,44 @@
         "never_heard_from": "Never heard from"
       }
     },
+    "alarms": {
+      "acknowledge": "Acknowledge",
+      "ack_title": "Acknowledge alarm",
+      "ack_all_title": "Acknowledge all alarms",
+      "ack_all_count": "Acknowledge all ({{count}})",
+      "ack_all_info": "You are about to acknowledge {{count}} active alarms in one go.",
+      "ack_as": "Acknowledging as",
+      "arrival_status": "Status on arrival",
+      "arrival_select": "Select status",
+      "arrival_required": "Select status on arrival",
+      "arrival_large_leak": "Major water leak",
+      "arrival_small_leak": "Minor water leak",
+      "arrival_false_alarm": "False alarm",
+      "arrival_condensation": "Condensation",
+      "arrival_other": "Other",
+      "action_taken": "Action taken",
+      "action_placeholder": "Briefly describe what was done...",
+      "action_required_min": "At least {{min}} characters",
+      "send_cancellation": "Send all-clear",
+      "send_cancellation_desc": "Notifies recipients that the alarm has been resolved",
+      "submit": "Acknowledge",
+      "submitting": "Submitting...",
+      "submit_error": "Could not acknowledge the alarm — please try again.",
+      "ack_success": "Alarm acknowledged",
+      "ack_all_success": "{{count}} alarms acknowledged"
+    },
     "map": {
       "subtitle": "Geographic overview of water sensors",
-      "coming_soon_body": "The water-detection map is on its way. In the meantime you can follow status from the Dashboard."
+      "no_sensors": "No water sensors found",
+      "no_sensors_subtitle": "There are no active water sensors in the selected location.",
+      "no_positions": "No sensors placed on the map",
+      "no_positions_hint": "Place the sensors on the map in the web app to see them here.",
+      "status": {
+        "alarm": "Alarm",
+        "dry_unacked": "Dry — pending ack",
+        "silent": "Silent",
+        "dry": "Dry"
+      }
     }
   },
   "profile": {
@@ -241,6 +276,8 @@
     "unauthorized": "You've been signed out. Please sign in again.",
     "forbidden": "You don't have permission to access this.",
     "server": "A server error occurred. Please try again later.",
-    "unknown": "An unexpected error occurred."
+    "unknown": "An unexpected error occurred.",
+    "legacy_unavailable_title": "Servers temporarily unavailable",
+    "legacy_unavailable": "We're currently experiencing issues with our server infrastructure. Please try again in half an hour. If the problem persists, contact support@roomalyzer.com."
   }
 }

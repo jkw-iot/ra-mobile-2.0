@@ -107,6 +107,7 @@
       "below_range": "Under grænse",
       "trend_rising": "Stigende",
       "trend_falling": "Faldende",
+      "trend_flat": "Flad",
       "presence": {
         "occupied": "Optaget",
         "vacant": "Ledig"
@@ -196,8 +197,8 @@
     "dashboard": {
       "title": "Dashboard",
       "subtitle": "Status for vanddetektering — opdateres hvert 10. sekund",
-      "no_sensors": "Ingen vand-sensorer",
-      "no_sensors_subtitle": "Der er ikke registreret vanddetekterings-sensorer på denne aftale endnu.",
+      "no_sensors": "Ingen aktive vand-sensorer",
+      "no_sensors_subtitle": "Vanddetektering er slået til på aftalen, men der er ingen aktive sensorer, der understøtter modulet. Aktiver eller tilknyt sensorerne i web-appen for at bruge vanddetektering i mobilen.",
       "live_feed": "Live aktivitet",
       "auto_refresh": "Auto-opdaterer",
       "all_good": "Alt i orden",
@@ -211,7 +212,6 @@
       },
       "kpi_alarm_desc": "Kræver handling",
       "kpi_dry_unacked_desc": "Tørre — afventer kvittering",
-      "kpi_dry_unacked_sub": "{{count}} tørre afventer kvittering",
       "kpi_silent_desc": "Ikke hørt fra i over {{h}} t",
       "kpi_response_desc": "Tid siden alarm blev udløst",
       "kpi_battery_desc": "Sensorer med <20% batteri",
@@ -224,9 +224,44 @@
         "never_heard_from": "Aldrig hørt fra"
       }
     },
+    "alarms": {
+      "acknowledge": "Kvittér",
+      "ack_title": "Kvittér alarm",
+      "ack_all_title": "Kvittér alle alarmer",
+      "ack_all_count": "Kvittér alle ({{count}})",
+      "ack_all_info": "Du er ved at kvittere {{count}} aktive alarmer på én gang.",
+      "ack_as": "Kvitterer som",
+      "arrival_status": "Status ved ankomst",
+      "arrival_select": "Vælg status",
+      "arrival_required": "Vælg status ved ankomst",
+      "arrival_large_leak": "Stort vandudslip",
+      "arrival_small_leak": "Lille vandudslip",
+      "arrival_false_alarm": "Falsk alarm",
+      "arrival_condensation": "Kondens",
+      "arrival_other": "Andet",
+      "action_taken": "Udført handling",
+      "action_placeholder": "Beskriv kort hvad der blev gjort...",
+      "action_required_min": "Mindst {{min}} tegn",
+      "send_cancellation": "Send afblæsning",
+      "send_cancellation_desc": "Underretter modtagerne om at alarmen er løst",
+      "submit": "Kvittér",
+      "submitting": "Kvitterer...",
+      "submit_error": "Kunne ikke kvittere alarmen — prøv igen.",
+      "ack_success": "Alarm kvitteret",
+      "ack_all_success": "{{count}} alarmer kvitteret"
+    },
     "map": {
       "subtitle": "Geografisk overblik over vand-sensorer",
-      "coming_soon_body": "Kortet for vanddetektering er på vej. I mellemtiden kan du følge status fra Dashboard."
+      "no_sensors": "Ingen vand-sensorer fundet",
+      "no_sensors_subtitle": "Der er ingen aktive vand-sensorer i den valgte lokation.",
+      "no_positions": "Ingen sensorer er placeret på kortet",
+      "no_positions_hint": "Placér sensorerne på kortet i web-appen for at se dem her.",
+      "status": {
+        "alarm": "Alarm",
+        "dry_unacked": "Tør — afventer kvittering",
+        "silent": "Tavs",
+        "dry": "Tør"
+      }
     }
   },
   "profile": {
@@ -241,6 +276,8 @@
     "unauthorized": "Du er logget ud. Log venligst ind igen.",
     "forbidden": "Du har ikke adgang til denne funktion.",
     "server": "Der opstod en serverfejl. Prøv igen senere.",
-    "unknown": "Der opstod en uventet fejl."
+    "unknown": "Der opstod en uventet fejl.",
+    "legacy_unavailable_title": "Servere midlertidigt utilgængelige",
+    "legacy_unavailable": "Vi oplever lige nu problemer med vores serverarkitektur. Prøv igen om en halv time. Hvis problemet fortsætter, kontakt support@roomalyzer.com."
   }
 }

@@ -20,6 +20,7 @@ import {
 } from '@/components';
 import { colors, spacing, type } from '@/theme';
 import { useAlerts } from '@/features/indeklima/hooks';
+import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 
 type Tab = 'active' | 'resolved';
 
@@ -45,7 +46,7 @@ export default function AlertsScreen() {
       {isLoading ? <LoadingIndicator /> : null}
 
       {isError ? (
-        <ErrorBanner message={(error as Error).message ?? t('errors.unknown')} />
+        <ErrorBanner message={friendlyApiErrorMessage(error, t)} />
       ) : null}
 
       <View style={{ padding: spacing.md }}>

@@ -107,6 +107,7 @@
       "below_range": "Under gräns",
       "trend_rising": "Stigande",
       "trend_falling": "Fallande",
+      "trend_flat": "Stabil",
       "presence": {
         "occupied": "Upptagen",
         "vacant": "Ledig"
@@ -196,8 +197,8 @@
     "dashboard": {
       "title": "Dashboard",
       "subtitle": "Status för vattendetektering — uppdateras var 10:e sekund",
-      "no_sensors": "Inga vattensensorer",
-      "no_sensors_subtitle": "Det finns inga registrerade vattendetekterings-sensorer för denna kund än.",
+      "no_sensors": "Inga aktiva vattensensorer",
+      "no_sensors_subtitle": "Vattendetektering är aktiverad för denna kund, men det finns inga aktiva sensorer som stödjer modulen. Aktivera eller koppla sensorerna i webbappen för att använda vattendetektering i mobilen.",
       "live_feed": "Live-aktivitet",
       "auto_refresh": "Auto-uppdaterar",
       "all_good": "Allt är bra",
@@ -211,7 +212,6 @@
       },
       "kpi_alarm_desc": "Åtgärd krävs",
       "kpi_dry_unacked_desc": "Torra — väntar på kvittens",
-      "kpi_dry_unacked_sub": "{{count}} torra väntar på kvittens",
       "kpi_silent_desc": "Ingen data på över {{h}} h",
       "kpi_response_desc": "Tid sedan larm utlöstes",
       "kpi_battery_desc": "Sensorer med <20 % batteri",
@@ -224,9 +224,44 @@
         "never_heard_from": "Aldrig hört av"
       }
     },
+    "alarms": {
+      "acknowledge": "Kvittera",
+      "ack_title": "Kvittera larm",
+      "ack_all_title": "Kvittera alla larm",
+      "ack_all_count": "Kvittera alla ({{count}})",
+      "ack_all_info": "Du är på väg att kvittera {{count}} aktiva larm samtidigt.",
+      "ack_as": "Kvitterar som",
+      "arrival_status": "Status vid ankomst",
+      "arrival_select": "Välj status",
+      "arrival_required": "Välj status vid ankomst",
+      "arrival_large_leak": "Stort vattenutsläpp",
+      "arrival_small_leak": "Mindre vattenutsläpp",
+      "arrival_false_alarm": "Falsklarm",
+      "arrival_condensation": "Kondens",
+      "arrival_other": "Övrigt",
+      "action_taken": "Utförd åtgärd",
+      "action_placeholder": "Beskriv kort vad som gjordes...",
+      "action_required_min": "Minst {{min}} tecken",
+      "send_cancellation": "Skicka avblåsning",
+      "send_cancellation_desc": "Meddelar mottagare att larmet är åtgärdat",
+      "submit": "Kvittera",
+      "submitting": "Kvitterar...",
+      "submit_error": "Kunde inte kvittera larmet — försök igen.",
+      "ack_success": "Larm kvitterat",
+      "ack_all_success": "{{count}} larm kvitterade"
+    },
     "map": {
       "subtitle": "Geografisk översikt över vattensensorer",
-      "coming_soon_body": "Kartan för vattendetektering är på väg. Under tiden kan du följa status från Dashboard."
+      "no_sensors": "Inga vattensensorer hittades",
+      "no_sensors_subtitle": "Det finns inga aktiva vattensensorer på vald plats.",
+      "no_positions": "Inga sensorer är placerade på kartan",
+      "no_positions_hint": "Placera sensorerna på kartan i webbappen för att se dem här.",
+      "status": {
+        "alarm": "Larm",
+        "dry_unacked": "Torr — väntar på kvittens",
+        "silent": "Tyst",
+        "dry": "Torr"
+      }
     }
   },
   "profile": {
@@ -241,6 +276,8 @@
     "unauthorized": "Du har loggats ut. Logga in igen.",
     "forbidden": "Du har inte behörighet till detta.",
     "server": "Ett serverfel inträffade. Försök igen senare.",
-    "unknown": "Ett oväntat fel inträffade."
+    "unknown": "Ett oväntat fel inträffade.",
+    "legacy_unavailable_title": "Servrar tillfälligt otillgängliga",
+    "legacy_unavailable": "Vi upplever just nu problem med vår serverinfrastruktur. Försök igen om en halvtimme. Om problemet kvarstår, kontakta support@roomalyzer.com."
   }
 }

@@ -1,127 +1,115 @@
 // ══════════════════════════════════════════════════════════════
-// Kort — geographic map of all sensors the user can see.
+// Water detection — Kort.
 //
-// Mirrors the sensor-list screen in chrome (same dark header,
-// same TreeSelect location picker, same ParamPicker) so the two
-// tabs feel like two views of the same data. Below the controls
-// a `react-native-maps` MapView shows every visible sensor as a
-// coloured pill at its saved GPS position (or a deterministic
-// fallback inside the group's bounding box when the sensor has
-// not yet been placed on the map in the web admin).
+// Mirrors `src/features/indeklima/MapScreen.tsx` so the two
+// "Kort" tabs feel like one product:
 //
-// Tapping a marker opens the sensor-detail page on the same
-// parameter the user is currently scanning.
+//   - Same dark navy header + AppHeader chrome
+//   - Same `<TreeSelect surface="dark">` location filter, with
+//     identical styling (`spacing.xs` inset)
+//   - Same auto-fit camera, "Show all sensors" floating FAB and
+//     overlay empty state on top of the live tile map
 //
-// Tile data is the OpenStreetMap CARTO tileset, served via the
-// Hono `/api/tiles` proxy (no auth required); the same source
-// the web Map page uses, so cartographic style stays consistent.
+// Data model (web parity, see
+// `roomalyzer20/src/pages/water/Map.jsx`):
+//
+//   `/admin/sensors`             — registered fleet (active + type 27)
+//   `/waterdetection/map-data`   — live status (alarm/dry/silent…)
+//   `/admin/sensor-positions`    — saved GPS pins
+//   `/indeklima/locations`       — tenant-wide location tree
+//
+// Markers are coloured by `status` (alarm = red, dry_unacked =
+// orange, silent = grey, dry = sage). Sensors without a saved
+// GPS position are filtered out before the map renders — same
+// behaviour as the web Map page; an explanatory empty-state
+// overlay nudges the user to place the sensors via the web admin.
+//
+// Tapping a marker shows the default RN-Maps callout with the
+// sensor name + location/status. There is no per-sensor detail
+// page in the mobile app for water yet, so we deliberately stop
+// at the callout instead of routing into a half-built screen.
 // ══════════════════════════════════════════════════════════════
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import MapView, { Marker, UrlTile } from 'react-native-maps';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQueries } from '@tanstack/react-query';
 
 import {
   AppHeader,
   ErrorBanner,
   Icon,
   LoadingIndicator,
-  ParamPicker,
-  SensorMapMarker,
   TreeSelect,
-  type ParamKey,
   type TreeSelectOption,
 } from '@/components';
 import { colors, radius, spacing, type } from '@/theme';
 import {
   buildLocationOptions,
   sensorMatchesLocation,
-  sensorSupports,
-  buildTypeParamsMap,
   useLocations,
-  useSensorGroups,
-  useSensorPositions,
-  useSensorTypes,
-  useSensorsFlat,
-} from './hooks';
-import {
-  DEFAULT_REGION,
-  placeSensors,
-  regionForSensors,
-} from './mapHelpers';
-import {
-  normalizeThresholds,
-  type NormalizedThresholds,
-} from './thresholds';
+} from '@/features/indeklima/hooks';
 import { useLocationFilter } from '@/hooks/useLocationFilter';
 import { useTenantStore } from '@/stores/tenantStore';
 import { useSensorListPrefsStore } from '@/stores/sensorListPrefsStore';
-import { indeklimaApi } from '@/services/api';
-import { cacheTiers } from '@/lib/queryClient';
 import { env } from '@/lib/env';
-import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 import { haptic } from '@/lib/haptics';
+import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 import { TILE_CACHE_MAX_AGE_SECONDS, TILE_CACHE_PATH } from '@/lib/tileCache';
 
-const PARAM_ORDER_INTERNAL: readonly ParamKey[] = [
-  'temp',
-  'hum',
-  'co2',
-  'voc',
-  'pir',
-];
+import { useWaterMapSensors, type WaterMapSensor } from './hooks';
+import {
+  DEFAULT_WATER_REGION,
+  placeWaterSensors,
+  regionForWaterSensors,
+} from './mapHelpers';
+import { WaterMapMarker } from './WaterMapMarker';
+
+import type { WaterMapStatus } from '@/services/api';
 
 /**
- * "Silent" detection — same heuristic the sensor list uses.
- * A sensor whose statusColor is grey or whose `time` is older
- * than ~24h is rendered with reduced opacity so live data wins
- * on the map.
+ * Translate a status enum into the same translation keys the web
+ * map uses, so callout copy and any future pills stay consistent
+ * across surfaces.
  */
-function isSilent(time: string | undefined, statusColor?: string): boolean {
-  if (statusColor === 'grey') return true;
-  if (!time) return true;
-  if (time.length <= 8) {
-    return !/^\d{1,2}:\d{2}$/.test(time);
+function statusLabelKey(status: WaterMapStatus): string {
+  switch (status) {
+    case 'alarm':
+      return 'water.map.status.alarm';
+    case 'dry_unacked':
+      return 'water.map.status.dry_unacked';
+    case 'silent':
+      return 'water.map.status.silent';
+    case 'dry':
+    default:
+      return 'water.map.status.dry';
   }
-  const d = new Date(time);
-  if (Number.isNaN(d.getTime())) return false;
-  const diffMs = Date.now() - d.getTime();
-  return diffMs / (1000 * 60 * 60) > 48;
 }
 
-export default function IndeklimaMapScreen() {
+export default function WaterMapScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
   const mapRef = useRef<MapView | null>(null);
 
   const activeTenantId = useTenantStore((s) => s.activeTenantId);
   const selectedLocationId = useSensorListPrefsStore((s) =>
     activeTenantId === null
       ? null
-      : s.selectedLocationByTenant[String(activeTenantId)] ?? null,
+      : s.selectedWaterLocationByTenant[String(activeTenantId)] ?? null,
   );
   const setSelectedLocation = useSensorListPrefsStore(
-    (s) => s.setSelectedLocation,
+    (s) => s.setSelectedWaterLocation,
   );
 
-  const groupsQuery = useSensorGroups();
-  const { data: flatSensors, isLoading, isError, error } = useSensorsFlat();
-  const sensorTypesQuery = useSensorTypes();
+  const { data: sensors, isLoading, isError, error } = useWaterMapSensors();
   const locationsQuery = useLocations();
-  const positionsQuery = useSensorPositions();
 
-  const typeMap = useMemo(
-    () => buildTypeParamsMap(sensorTypesQuery.data),
-    [sensorTypesQuery.data],
+  // ── Location-restricted set (RBAC) ─────────────────────────
+  const allowed = useLocationFilter<WaterMapSensor>(
+    sensors,
+    (s) => s.locationId,
   );
 
-  const [primaryParam, setPrimaryParam] = useState<ParamKey>('temp');
-
-  const allowed = useLocationFilter(flatSensors, (s) => s.locationId);
-
+  // ── Picker options (full subtree match) ───────────────────
   const locationOptions = useMemo(
     () => buildLocationOptions(allowed, locationsQuery.data),
     [allowed, locationsQuery.data],
@@ -129,13 +117,17 @@ export default function IndeklimaMapScreen() {
 
   const locationSelectOptions = useMemo<TreeSelectOption[]>(
     () =>
-      locationOptions.map((o) => ({ id: o.id, label: o.name, depth: o.depth })),
+      locationOptions.map((o) => ({
+        id: o.id,
+        label: o.name,
+        depth: o.depth,
+      })),
     [locationOptions],
   );
 
   // Adopt the first available location automatically — same UX
-  // pattern as the sensor list, so re-opening the app on either
-  // tab never lands on an empty filter.
+  // as the indeklima map so re-opening the tab never lands on an
+  // empty filter.
   useEffect(() => {
     if (activeTenantId === null || locationOptions.length === 0) return;
     const hasStoredLocation =
@@ -170,67 +162,15 @@ export default function IndeklimaMapScreen() {
     return allowed.filter((s) => sensorMatchesLocation(s, effectiveSubtree));
   }, [allowed, effectiveLocation, effectiveSubtree]);
 
-  const availableParams = useMemo<Set<ParamKey>>(() => {
-    if (typeMap.size === 0) return new Set(PARAM_ORDER_INTERNAL);
-    const found = new Set<ParamKey>();
-    for (const s of visible) {
-      for (const p of PARAM_ORDER_INTERNAL) {
-        if (found.has(p)) continue;
-        if (sensorSupports(s.sensorType, p, typeMap)) found.add(p);
-      }
-      if (found.size === PARAM_ORDER_INTERNAL.length) break;
-    }
-    return found;
-  }, [visible, typeMap]);
+  const placedSensors = useMemo(() => placeWaterSensors(visible), [visible]);
 
-  useEffect(() => {
-    if (availableParams.size === 0) return;
-    if (availableParams.has(primaryParam)) return;
-    const first = PARAM_ORDER_INTERNAL.find((p) => availableParams.has(p));
-    if (first) setPrimaryParam(first);
-  }, [availableParams, primaryParam]);
-
-  const placedSensors = useMemo(
-    () => placeSensors(visible, groupsQuery.data, positionsQuery.data),
-    [visible, groupsQuery.data, positionsQuery.data],
-  );
-
-  // Threshold queries — same batched pattern the list uses, so
-  // marker tinting matches the cards 1:1 (down to which API
-  // shape variant is honoured per sensor).
-  const thresholdQueries = useQueries({
-    queries: visible.map((s) => ({
-      queryKey: [
-        'indeklima',
-        'sensor',
-        s.id,
-        'thresholds',
-        { tenantId: activeTenantId },
-      ],
-      queryFn: () => indeklimaApi.getSensorThresholds(s.id),
-      enabled: activeTenantId !== null,
-      staleTime: cacheTiers.downsampled.staleTime,
-      gcTime: cacheTiers.downsampled.gcTime,
-    })),
-  });
-
-  const thresholdMap = useMemo(() => {
-    const m = new Map<number, NormalizedThresholds>();
-    visible.forEach((s, i) => {
-      const data = thresholdQueries[i]?.data;
-      if (data) m.set(s.id, normalizeThresholds(data));
-    });
-    return m;
-  }, [visible, thresholdQueries]);
-
-  // Auto-fit when the visible sensor set changes. We animate so
-  // the user sees the camera move (acts as feedback for their
-  // location filter pick), and we guard with a token so very
-  // rapid changes only animate to the latest target.
+  // ── Auto-fit camera ────────────────────────────────────────
+  // Same token-guarded animation pattern as the indeklima map:
+  // a quick filter change → only the latest target is honoured.
   const fitToken = useRef(0);
   useEffect(() => {
     if (placedSensors.length === 0) return;
-    const region = regionForSensors(placedSensors);
+    const region = regionForWaterSensors(placedSensors);
     if (!region) return;
     const myToken = ++fitToken.current;
     const id = setTimeout(() => {
@@ -243,9 +183,22 @@ export default function IndeklimaMapScreen() {
   const onFitAll = useCallback(() => {
     haptic.light();
     if (placedSensors.length === 0) return;
-    const region = regionForSensors(placedSensors);
+    const region = regionForWaterSensors(placedSensors);
     if (region) mapRef.current?.animateToRegion(region, 350);
   }, [placedSensors]);
+
+  // Decide which empty-state copy to show: nothing-at-all vs.
+  // "you have sensors but none are placed". Mirrors the web
+  // Map page's two-tier hint.
+  const emptyCopyKey =
+    visible.length === 0
+      ? 'water.map.no_sensors'
+      : 'water.map.no_positions';
+  const emptySubtitleKey =
+    visible.length === 0
+      ? 'water.map.no_sensors_subtitle'
+      : 'water.map.no_positions_hint';
+  const emptyIcon = visible.length === 0 ? 'droplet' : 'geo-alt';
 
   return (
     <SafeAreaView
@@ -262,6 +215,7 @@ export default function IndeklimaMapScreen() {
         style={{
           backgroundColor: colors.navy,
           paddingTop: spacing.xs,
+          paddingBottom: spacing.md,
         }}
       >
         <TreeSelect
@@ -278,20 +232,6 @@ export default function IndeklimaMapScreen() {
           placeholder={t('indeklima.sensors.no_locations')}
           inset={spacing.xs}
         />
-
-        <View
-          style={{
-            paddingHorizontal: spacing.xs,
-            paddingTop: spacing.xs,
-            paddingBottom: spacing.md,
-          }}
-        >
-          <ParamPicker
-            value={primaryParam}
-            onChange={setPrimaryParam}
-            available={availableParams}
-          />
-        </View>
       </View>
 
       <View style={{ flex: 1, position: 'relative' }}>
@@ -302,7 +242,7 @@ export default function IndeklimaMapScreen() {
             mapRef.current = r;
           }}
           style={{ flex: 1 }}
-          initialRegion={DEFAULT_REGION}
+          initialRegion={DEFAULT_WATER_REGION}
           maxZoomLevel={19}
           showsCompass={false}
           showsMyLocationButton={false}
@@ -318,41 +258,34 @@ export default function IndeklimaMapScreen() {
             tileCachePath={TILE_CACHE_PATH}
             tileCacheMaxAge={TILE_CACHE_MAX_AGE_SECONDS}
           />
-          {placedSensors.map((p) => (
-            <Marker
-              key={p.sensor.id}
-              coordinate={{ latitude: p.lat, longitude: p.lng }}
-              // Children-style markers re-render on every camera
-              // change unless we opt out — the pill content is
-              // static for the lifetime of a fetch, so we can
-              // safely turn tracking off and reclaim a lot of FPS
-              // on busy maps.
-              tracksViewChanges={false}
-              anchor={{ x: 0.5, y: 0.5 }}
-              onPress={() => {
-                haptic.light();
-                router.push({
-                  pathname: '/sensor/[id]',
-                  params: {
-                    id: String(p.sensor.id),
-                    param: primaryParam,
-                  },
-                });
-              }}
-            >
-              <SensorMapMarker
-                sensor={p.sensor}
-                param={primaryParam}
-                thresholds={thresholdMap.get(p.sensor.id)}
-                silent={isSilent(p.sensor.time, p.sensor.statusColor)}
-              />
-            </Marker>
-          ))}
+          {placedSensors.map((p) => {
+            const statusLabel = t(statusLabelKey(p.sensor.status));
+            const calloutDescription = p.sensor.location
+              ? `${statusLabel} · ${p.sensor.location}`
+              : statusLabel;
+            return (
+              <Marker
+                key={p.sensor.numericId}
+                coordinate={{ latitude: p.lat, longitude: p.lng }}
+                tracksViewChanges={false}
+                anchor={{ x: 0.5, y: 0.5 }}
+                title={p.sensor.name}
+                description={calloutDescription}
+                onPress={() => haptic.light()}
+              >
+                <WaterMapMarker status={p.sensor.status} />
+              </Marker>
+            );
+          })}
         </MapView>
 
-        {/* Empty state — overlaid on the map so the underlying tiles
-            still hint at "this is a map", but the user has a clear
-            message about why no markers are visible. */}
+        {/* Empty state — overlaid on the map so the underlying
+            tiles still hint at "this is a map" while the user
+            understands why no markers are visible. Two variants:
+              - No sensors (or location filter removes all of
+                them): tell the user there are none.
+              - Sensors exist but none have a saved GPS pin:
+                explain that placement happens in the web admin. */}
         {!isLoading && placedSensors.length === 0 ? (
           <View
             pointerEvents="none"
@@ -375,27 +308,26 @@ export default function IndeklimaMapScreen() {
               elevation: 3,
             }}
           >
-            <Icon name="thermometer" color={colors.gray[300]} size={28} />
+            <Icon name={emptyIcon} color={colors.gray[300]} size={28} />
             <Text
               style={[
                 type.bodyStrong,
                 { color: colors.brandDark, textAlign: 'center' },
               ]}
             >
-              {t('indeklima.sensors.empty')}
+              {t(emptyCopyKey)}
             </Text>
             <Text style={[type.caption, { textAlign: 'center' }]}>
-              {t('indeklima.sensors.empty_subtitle')}
+              {t(emptySubtitleKey)}
             </Text>
           </View>
         ) : null}
 
-        {/* Fit-all FAB — floating in the top-right corner of the
-            map. Per `.cursorrules` § "Pressable rendering quirk",
-            the absolute positioning lives on the outer <View> (not
-            the Pressable's function-style) so iOS doesn't
-            sporadically drop the layout and re-render the button
-            inline at the bottom of the flex column. */}
+        {/* Fit-all FAB — floating in the top-right of the map.
+            Per `.cursorrules` § "Pressable rendering quirk", the
+            absolute positioning lives on the outer <View> (not
+            the Pressable's function-style) so iOS doesn't drop
+            the layout on re-renders. */}
         {placedSensors.length > 0 ? (
           <View
             style={{

@@ -41,6 +41,11 @@ const ICON_MAP: Record<string, MciName> = {
   'x-lg': 'close',
   'check': 'check',
   'check-lg': 'check',
+  'check2': 'check',
+  'check2-all': 'check-all',
+  'check2-square': 'checkbox-marked-outline',
+  'check-all': 'check-all',
+  'slash-circle': 'cancel',
   'plus': 'plus',
   'plus-lg': 'plus',
   'dash': 'minus',
@@ -56,9 +61,11 @@ const ICON_MAP: Record<string, MciName> = {
   'exclamation-triangle': 'alert-outline',
   'exclamation-triangle-fill': 'alert',
   'exclamation-circle': 'alert-circle-outline',
+  'exclamation-circle-fill': 'alert-circle',
   'info-circle': 'information-outline',
   'bell': 'bell-outline',
   'bell-fill': 'bell',
+  'bell-slash': 'bell-off-outline',
   'check-circle': 'check-circle-outline',
   'check-circle-fill': 'check-circle',
 
@@ -95,6 +102,7 @@ const ICON_MAP: Record<string, MciName> = {
   'humidity': 'water-percent',
   'cloud': 'cloud-outline',
   'cloud-fog': 'weather-fog',
+  'cloud-drizzle': 'weather-rainy',
   'wind': 'weather-windy',
   // CO₂ — the literal "CO₂" molecule glyph. Used for the param
   // selector on sensor-detail where there's no room for text.

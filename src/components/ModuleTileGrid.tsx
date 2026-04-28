@@ -89,7 +89,16 @@ function ModuleTile({
     >
       <View
         style={{
-          minHeight: 124,
+          // Fixed height (not `minHeight`) so every tile in the
+          // grid is identical regardless of state. Locked tiles
+          // render an extra "Coming soon" caption below the
+          // title, which would otherwise make their row taller
+          // than rows with only active/selectable tiles. The
+          // icon + title stay visually centred via
+          // `justifyContent: 'center'`, so the active tile just
+          // shows a slightly larger empty band where the caption
+          // would sit instead of shrinking the whole tile.
+          height: 140,
           borderRadius: radius.lg,
           padding: spacing.md,
           backgroundColor: tileBg,

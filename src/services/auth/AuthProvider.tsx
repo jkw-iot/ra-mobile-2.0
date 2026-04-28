@@ -73,6 +73,16 @@ interface AuthContextValue extends AuthProfile {
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
   isLocationRestricted: boolean;
+  /**
+   * Last error from the post-Firebase backend sync (`/auth/login`
+   * → `/auth/me`). Set when Hono is unreachable, Legacy is down,
+   * or anything else prevented us from finishing sign-in. The
+   * login screen reads this and renders our friendly localised
+   * outage message via `friendlyApiErrorMessage`. Reset on
+   * successful sync, on `clearLoginError`, and on logout.
+   */
+  loginError: Error | null;
+  clearLoginError: () => void;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   hasRole: (slug: string) => boolean;
@@ -93,7 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [profile, setProfile] = useState<AuthProfile>(EMPTY_PROFILE);
   const [loading, setLoading] = useState(true);
+  const [loginError, setLoginError] = useState<Error | null>(null);
   const cancelledRef = useRef(false);
+
+  const clearLoginError = useCallback(() => setLoginError(null), []);
 
   const applyBackend = useCallback((data: Record<string, unknown>) => {
     // Backend returns tenants as { tenant_id, tenant_name, tenant_slug } —
@@ -146,10 +159,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       try {
         const data = await apiClient.post<Record<string, unknown>>('/auth/login', {});
-        if (!cancelledRef.current) applyBackend(data);
-      } catch (err) {
-        console.error('Backend sync after Firebase auth failed:', err);
         if (!cancelledRef.current) {
+          applyBackend(data);
+          setLoginError(null);
+        }
+      } catch (err) {
+        // Stash the error so the login screen can render our
+        // friendly outage message via `friendlyApiErrorMessage`.
+        // We deliberately use `console.warn` instead of
+        // `console.error` so RN's dev LogBox doesn't paint a
+        // red toast on top of the (already correctly-rendered)
+        // banner — the UI is now the canonical surface for this
+        // failure, the log line is just trace context.
+        console.warn('Backend sync after Firebase auth failed:', err);
+        if (!cancelledRef.current) {
+          setLoginError(err instanceof Error ? err : new Error(String(err)));
           clear();
           try {
             await firebaseLogout();
@@ -158,7 +182,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-      if (!cancelledRef.current) setLoading(false);
+      if (!cancelledRef.current) {
+        setLoading(false);
+      }
     });
 
     return () => {
@@ -174,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore
     }
     clear();
+    setLoginError(null);
     for (const key of SENSITIVE_STORAGE_KEYS) {
       storage.delete(key);
     }
@@ -212,6 +239,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: profile.user !== null,
     isSuperAdmin,
     isLocationRestricted: profile.allowedLocations !== null && !isSuperAdmin,
+    loginError,
+    clearLoginError,
     logout,
     refresh,
     hasRole,

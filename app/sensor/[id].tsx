@@ -76,6 +76,7 @@ import {
   formatRangeLabel,
 } from '@/features/indeklima/chartHelpers';
 import { haptic } from '@/lib/haptics';
+import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 import { useDetailPrefsStore, type DetailPeriod } from '@/stores/detailPrefsStore';
 
 type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'pir';
@@ -654,7 +655,7 @@ export default function SensorDetailScreen() {
                     <Icon name="motion-sensor" color={colors.gray[300]} size={24} />
                     <Text style={[type.caption, { textAlign: 'center' }]}>
                       {historyError
-                        ? (historyError as Error)?.message ?? t('errors.unknown')
+                        ? friendlyApiErrorMessage(historyError, t)
                         : t('indeklima.sensor_detail.no_history')}
                     </Text>
                   </View>
@@ -682,7 +683,7 @@ export default function SensorDetailScreen() {
                   <Icon name="graph-up" color={colors.gray[300]} size={24} />
                   <Text style={[type.caption, { textAlign: 'center' }]}>
                     {historyError
-                      ? (historyError as Error)?.message ?? t('errors.unknown')
+                      ? friendlyApiErrorMessage(historyError, t)
                       : t('indeklima.sensor_detail.no_history')}
                   </Text>
                 </View>

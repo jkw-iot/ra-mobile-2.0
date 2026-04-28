@@ -11,6 +11,7 @@ import { View, Pressable, StatusBar, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, spacing, TOUCH_TARGET } from '@/theme';
+import { haptic } from '@/lib/haptics';
 import { Icon } from './Icon';
 import { Logo } from './Logo';
 import { AppDrawer } from './AppDrawer';
@@ -35,7 +36,10 @@ export function AppHeader() {
         >
           <Logo width={110} variant="white" />
           <Pressable
-            onPress={() => setOpen(true)}
+            onPress={() => {
+              haptic.light();
+              setOpen(true);
+            }}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Open menu"
@@ -48,7 +52,7 @@ export function AppHeader() {
               backgroundColor: pressed ? 'rgba(255,255,255,0.1)' : 'transparent',
             })}
           >
-            <Icon name="list" color={colors.white} size={26} />
+            <Icon name="list" color={colors.white} size={32} />
           </Pressable>
         </View>
       </View>

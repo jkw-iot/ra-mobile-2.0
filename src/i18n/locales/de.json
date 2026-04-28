@@ -107,6 +107,7 @@
       "below_range": "Unter Grenzwert",
       "trend_rising": "Steigend",
       "trend_falling": "Fallend",
+      "trend_flat": "Stabil",
       "presence": {
         "occupied": "Besetzt",
         "vacant": "Frei"
@@ -196,8 +197,8 @@
     "dashboard": {
       "title": "Dashboard",
       "subtitle": "Status der Wasserdetektion — aktualisiert alle 10 Sekunden",
-      "no_sensors": "Keine Wasser-Sensoren",
-      "no_sensors_subtitle": "Für diesen Kunden sind noch keine Wasserdetektions-Sensoren registriert.",
+      "no_sensors": "Keine aktiven Wasser-Sensoren",
+      "no_sensors_subtitle": "Die Wasserdetektion ist für diesen Kunden aktiviert, aber es gibt keine aktiven Sensoren, die das Modul unterstützen. Aktivieren oder verknüpfen Sie die Sensoren in der Web-App, um die Wasserdetektion mobil zu nutzen.",
       "live_feed": "Live-Aktivität",
       "auto_refresh": "Auto-Update",
       "all_good": "Alles in Ordnung",
@@ -211,7 +212,6 @@
       },
       "kpi_alarm_desc": "Aktion erforderlich",
       "kpi_dry_unacked_desc": "Trocken — wartet auf Quittung",
-      "kpi_dry_unacked_sub": "{{count}} trocken, warten auf Quittung",
       "kpi_silent_desc": "Seit über {{h}} h keine Daten",
       "kpi_response_desc": "Zeit seit Alarmauslösung",
       "kpi_battery_desc": "Sensoren mit <20 % Akku",
@@ -224,9 +224,44 @@
         "never_heard_from": "Nie gehört"
       }
     },
+    "alarms": {
+      "acknowledge": "Quittieren",
+      "ack_title": "Alarm quittieren",
+      "ack_all_title": "Alle Alarme quittieren",
+      "ack_all_count": "Alle quittieren ({{count}})",
+      "ack_all_info": "Sie sind dabei, {{count}} aktive Alarme auf einmal zu quittieren.",
+      "ack_as": "Quittiert von",
+      "arrival_status": "Status bei Ankunft",
+      "arrival_select": "Status auswählen",
+      "arrival_required": "Status bei Ankunft wählen",
+      "arrival_large_leak": "Großer Wasseraustritt",
+      "arrival_small_leak": "Kleiner Wasseraustritt",
+      "arrival_false_alarm": "Fehlalarm",
+      "arrival_condensation": "Kondensation",
+      "arrival_other": "Sonstiges",
+      "action_taken": "Durchgeführte Maßnahme",
+      "action_placeholder": "Kurz beschreiben, was unternommen wurde...",
+      "action_required_min": "Mindestens {{min}} Zeichen",
+      "send_cancellation": "Entwarnung senden",
+      "send_cancellation_desc": "Benachrichtigt Empfänger, dass der Alarm beendet ist",
+      "submit": "Quittieren",
+      "submitting": "Wird quittiert...",
+      "submit_error": "Alarm konnte nicht quittiert werden — bitte erneut versuchen.",
+      "ack_success": "Alarm quittiert",
+      "ack_all_success": "{{count}} Alarme quittiert"
+    },
     "map": {
       "subtitle": "Geografische Übersicht der Wasser-Sensoren",
-      "coming_soon_body": "Die Karte für die Wasserdetektion wird vorbereitet. In der Zwischenzeit können Sie den Status im Dashboard verfolgen."
+      "no_sensors": "Keine Wasser-Sensoren gefunden",
+      "no_sensors_subtitle": "Am gewählten Standort gibt es keine aktiven Wasser-Sensoren.",
+      "no_positions": "Keine Sensoren auf der Karte platziert",
+      "no_positions_hint": "Platzieren Sie die Sensoren in der Web-App auf der Karte, um sie hier zu sehen.",
+      "status": {
+        "alarm": "Alarm",
+        "dry_unacked": "Trocken — wartet auf Quittung",
+        "silent": "Stumm",
+        "dry": "Trocken"
+      }
     }
   },
   "profile": {
@@ -241,6 +276,8 @@
     "unauthorized": "Sie wurden abgemeldet. Bitte erneut anmelden.",
     "forbidden": "Keine Berechtigung für diesen Bereich.",
     "server": "Ein Serverfehler ist aufgetreten. Bitte später erneut versuchen.",
-    "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+    "unknown": "Ein unerwarteter Fehler ist aufgetreten.",
+    "legacy_unavailable_title": "Server vorübergehend nicht verfügbar",
+    "legacy_unavailable": "Wir haben derzeit Probleme mit unserer Serverinfrastruktur. Bitte versuche es in einer halben Stunde erneut. Falls das Problem weiterhin besteht, kontaktiere support@roomalyzer.com."
   }
 }

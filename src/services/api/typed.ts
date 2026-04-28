@@ -187,10 +187,55 @@ export type WaterConfigUpdateBody = {
   slaThresholdMinutes?: number;
 };
 
+// `/waterdetection/map-data` — live status snapshot keyed by
+// device sensorId. Fed from `wd_sensor_status`. The OpenAPI
+// schema declares status as `'alarm' | 'dry' | 'silent'`; in
+// practice the backend can also return `'dry_unacked'` for a
+// sensor whose triggering alarm has not yet been acknowledged
+// (mirrors the dashboard's `WaterAlarmStatus`). We widen the
+// type here so the map can render that fourth state without a
+// cast and without lying to TypeScript.
+export type WaterMapStatus = 'alarm' | 'dry' | 'dry_unacked' | 'silent';
+
+type SchemaWaterMapItem = JsonResponse<
+  '/api/waterdetection/map-data',
+  'get'
+>[number];
+
+export interface WaterMapDataItem
+  extends Omit<SchemaWaterMapItem, 'status'> {
+  status: WaterMapStatus;
+}
+
+/**
+ * Body shape for both `/alarms/{id}/acknowledge` and
+ * `/alarms/acknowledge-all`. The route handlers accept the same
+ * pair of fields, so we share one type. The OpenAPI schema for the
+ * single-alarm endpoint is slightly stale (missing
+ * `sendCancellation`), so we redeclare the contract here to match
+ * the actual server behaviour.
+ */
+export type WaterAlarmAckBody = {
+  /** Required note describing the resolution. ≥ 1 char (server enforces non-empty). */
+  note: string;
+  /** When true, sends an "all clear" notification to recipients. */
+  sendCancellation?: boolean;
+};
+
 export const waterApi = {
   /** Dashboard KPIs, active alarms, silent sensors and recent heartbeats. */
   getDashboard: () =>
     apiClient.get<WaterDashboardResponse>('/waterdetection/dashboard'),
+
+  /**
+   * Live per-sensor status snapshot for the map / floor-plan view.
+   * Returns one row per sensor that has ever been seen by
+   * `wd_sensor_status`. Sensors registered in `/admin/sensors`
+   * but absent here have never reported and are treated as
+   * `'silent'` by the map screen.
+   */
+  getMapData: () =>
+    apiClient.get<WaterMapDataItem[]>('/waterdetection/map-data'),
 
   /** Per-tenant configuration (silent + SLA thresholds). */
   getConfig: () => apiClient.get<WaterConfig>('/waterdetection/config'),
@@ -205,12 +250,26 @@ export const waterApi = {
       '/waterdetection/config',
       body,
     ),
+
+  /** Acknowledge a single active (or `dry_unacked`) alarm. */
+  acknowledgeAlarm: (id: number | string, body: WaterAlarmAckBody) =>
+    apiClient.post<{ ok: boolean }>(
+      `/waterdetection/alarms/${encodeURIComponent(String(id))}/acknowledge`,
+      body,
+    ),
+
+  /** Bulk-acknowledge every pending alarm for the active tenant. */
+  acknowledgeAllAlarms: (body: WaterAlarmAckBody) =>
+    apiClient.post<{ ok: boolean; acknowledgedCount: number }>(
+      '/waterdetection/alarms/acknowledge-all',
+      body,
+    ),
 } as const;
 
 // ── Admin Sensors (registered fleet, all sensor types) ────
 //
-// Used by the water dashboard to count every device registered as
-// a water sensor (`sensorType === '27'`) — including ones that
+// Used by the water dashboard to count active devices registered
+// as water sensors (`sensorType === '27'`) — including ones that
 // never sent an event yet, which the live `wd_sensor_status` view
 // does not know about. Endpoint is read-accessible by regular
 // tenant members (same as `/admin/sensor-positions`).

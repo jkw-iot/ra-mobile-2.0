@@ -12,7 +12,11 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\" \"app/**/*.{ts,tsx}\"",
     "gen:api": "node scripts/gen-api.mjs https://v2.roomalyzer.com/api/docs/openapi.json",
-    "gen:api:local": "node scripts/gen-api.mjs http://localhost:3001/api/docs/openapi.json"
+    "gen:api:local": "node scripts/gen-api.mjs http://localhost:3001/api/docs/openapi.json",
+    "net:home": "node scripts/set-network.mjs home",
+    "net:work": "node scripts/set-network.mjs work",
+    "net:auto": "node scripts/set-network.mjs auto",
+    "net:list": "node scripts/set-network.mjs list"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -27,6 +31,7 @@
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.8",
     "expo-dev-client": "~6.0.17",
+    "expo-file-system": "~19.0.22",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-linking": "~8.0.11",

@@ -59,6 +59,7 @@ import { useQueries } from '@tanstack/react-query';
 import { cacheTiers } from '@/lib/queryClient';
 import type { StatusTone } from '@/theme';
 import { haptic } from '@/lib/haptics';
+import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 import { format, subHours } from 'date-fns';
 
 // ── Helpers ───────────────────────────────────────────────
@@ -94,6 +95,12 @@ function fmtInt(
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return null;
   return `${Math.round(n)} ${unit}`;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -218,6 +225,36 @@ function MetricPill({
 // ── Sensor card ────────────────────────────────────────────
 type Trend = 'up' | 'down' | 'flat' | 'unknown';
 
+function TrendIndicator({
+  trend,
+  label,
+}: {
+  trend: Trend;
+  label: string;
+}) {
+  const icon =
+    trend === 'up' ? 'arrow-up'
+    : trend === 'down' ? 'arrow-down'
+    : 'dash';
+
+  return (
+    <View
+      accessibilityLabel={label}
+      style={{
+        width: 16,
+        height: 16,
+        borderRadius: radius.full,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.gray[100],
+        marginLeft: 1,
+      }}
+    >
+      <Icon name={icon} color={colors.gray[500]} size={11} />
+    </View>
+  );
+}
+
 /** True when the sensor reports a presence (PIR) reading. */
 function isPresenceActive(v: number | string | undefined): boolean {
   if (v == null || v === '-' || v === '') return false;
@@ -285,10 +322,17 @@ function SensorCard({
   };
 
   const primaryValue = formatPrimary(primaryParam);
-  // Thresholds don't apply to presence — skip tone lookup for it.
+  // Thresholds don't apply to presence — fall back to a binary
+  // tone based on occupancy so the room reads at a glance:
+  // occupied → red ("bad"), vacant → green ("good"). This mirrors
+  // the map marker pill which already colours presence this way.
   const primaryTone =
-    primaryValue && primaryParam !== 'pir'
-      ? valueTone(thresholds, primaryParam, sensor[primaryParam])
+    primaryValue
+      ? primaryParam === 'pir'
+        ? isPresenceActive(sensor.pir)
+          ? 'bad'
+          : 'good'
+        : valueTone(thresholds, primaryParam, sensor[primaryParam])
       : undefined;
 
   const secondaryParams: ParamKey[] = (
@@ -305,15 +349,11 @@ function SensorCard({
         ? colors.statusGood
         : colors.brandDark;
 
-  const trendIcon =
-    trend === 'up' ? 'arrow-up'
-    : trend === 'down' ? 'arrow-down'
-    : trend === 'flat' ? 'dash'
-    : null;
   const trendLabel =
     trend === 'up' ? t('indeklima.sensors.trend_rising')
     : trend === 'down' ? t('indeklima.sensors.trend_falling')
-    : undefined;
+    : trend === 'flat' ? t('indeklima.sensors.trend_flat')
+    : t('indeklima.sensors.trend_flat');
 
   return (
     // Outer wrapper carries the layout (margins) on a plain
@@ -426,8 +466,16 @@ function SensorCard({
                       ? fmtNumberUnit(sensor[p], paramUnit[p], 1)
                       : fmtInt(sensor[p], paramUnit[p]);
                 if (!val) return null;
+                // Presence has no thresholds — colour binary by
+                // occupancy (occupied = red, vacant = green) so
+                // the secondary pill reads as fast as a numeric
+                // metric outside its range.
                 const pillTone =
-                  p === 'pir' ? undefined : valueTone(thresholds, p, sensor[p]);
+                  p === 'pir'
+                    ? isPresenceActive(sensor.pir)
+                      ? 'bad'
+                      : 'good'
+                    : valueTone(thresholds, p, sensor[p]);
                 return <MetricPill key={p} value={val} icon={paramIcon[p]} tone={pillTone} />;
               })}
             </View>
@@ -472,11 +520,10 @@ function SensorCard({
               >
                 {primaryValue}
               </Text>
-              {trendIcon ? (
-                <Icon
-                  name={trendIcon}
-                  color={primaryValueColor}
-                  size={16}
+              {primaryParam !== 'pir' ? (
+                <TrendIndicator
+                  trend={trend}
+                  label={trendLabel}
                 />
               ) : null}
             </View>
@@ -703,12 +750,15 @@ export default function IndeklimaSensorsScreen() {
         return;
       }
       const avgKey = PARAM_AVG_KEY[primaryParam];
-      const first = readings[0]?.[avgKey];
-      const last = readings[readings.length - 1]?.[avgKey];
-      if (typeof first !== 'number' || typeof last !== 'number') {
+      const values = readings
+        .map((r) => toFiniteNumber(r[avgKey]))
+        .filter((v): v is number => v !== null);
+      if (values.length < 2) {
         m.set(s.id, 'unknown');
         return;
       }
+      const first = values[0]!;
+      const last = values[values.length - 1]!;
       const delta = last - first;
       const min = TREND_MIN_DELTA[primaryParam];
       if (Math.abs(delta) < min) m.set(s.id, 'flat');
@@ -722,7 +772,7 @@ export default function IndeklimaSensorsScreen() {
       <AppHeader />
 
       {isError ? (
-        <ErrorBanner message={(error as Error).message ?? t('errors.unknown')} />
+        <ErrorBanner message={friendlyApiErrorMessage(error, t)} />
       ) : null}
 
       <View
@@ -802,7 +852,12 @@ export default function IndeklimaSensorsScreen() {
           />
         }
         ListEmptyComponent={
-          !isLoading ? (
+          // When the fetch errored, the empty data set is a
+          // side-effect of the failure — not a "no sensors
+          // configured" state. The ErrorBanner above already
+          // owns the messaging, so we suppress the misleading
+          // "Ingen sensorer fundet" card to avoid double-talk.
+          !isLoading && !isError ? (
             <View
               style={{
                 marginHorizontal: spacing.xs,

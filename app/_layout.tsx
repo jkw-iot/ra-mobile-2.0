@@ -19,6 +19,7 @@ import { QueryProvider } from '@/lib/QueryProvider';
 import { AuthProvider, useAuth } from '@/services/auth/AuthProvider';
 import { LoadingIndicator } from '@/components';
 import { useTenantStore } from '@/stores/tenantStore';
+import { ensureTileCacheDir } from '@/lib/tileCache';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -87,6 +88,13 @@ export default function RootLayout() {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
+
+  // Pre-create the on-device tile-cache directory so the very first
+  // map mount can hand the path straight to <UrlTile> without a
+  // race against directory creation.
+  useEffect(() => {
+    void ensureTileCacheDir();
+  }, []);
 
   if (!fontsLoaded && !fontError) return null;
 

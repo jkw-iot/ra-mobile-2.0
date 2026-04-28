@@ -55,6 +55,7 @@ import {
 } from '@/features/indeklima/thresholds';
 import type { DetailPeriod } from '@/stores/detailPrefsStore';
 import { haptic } from '@/lib/haptics';
+import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 
 const VALID_PARAMS: readonly Param[] = ['temp', 'hum', 'co2', 'voc', 'pir'] as const;
 const VALID_PERIODS: readonly DetailPeriod[] = [
@@ -346,7 +347,7 @@ export default function SensorGraphFullscreen() {
                   ]}
                 >
                   {historyError
-                    ? (historyError as Error)?.message ?? t('errors.unknown')
+                    ? friendlyApiErrorMessage(historyError, t)
                     : t('indeklima.sensor_detail.no_history')}
                 </Text>
               </View>
@@ -385,7 +386,7 @@ export default function SensorGraphFullscreen() {
                 ]}
               >
                 {historyError
-                  ? (historyError as Error)?.message ?? t('errors.unknown')
+                  ? friendlyApiErrorMessage(historyError, t)
                   : t('indeklima.sensor_detail.no_history')}
               </Text>
             </View>

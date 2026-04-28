@@ -10,30 +10,42 @@
 // surface they open.
 // ══════════════════════════════════════════════════════════════
 import { Fragment, useMemo } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Icon } from '@/components';
 import { colors, radius, spacing, toneColor, type } from '@/theme';
+import { haptic } from '@/lib/haptics';
 
 import type { FeedEvent, FeedSections } from './helpers';
 import { formatTimestamp } from './helpers';
 
 export interface LiveFeedProps {
   sections: FeedSections;
+  /**
+   * If provided, alarm rows render a "Kvittér" pill that calls
+   * this with the alarm's id. Silent / heartbeat rows are
+   * unaffected — they remain non-interactive.
+   */
+  onAcknowledgeAlarm?: (alarmId: number) => void;
 }
 
 interface RowProps {
   event: FeedEvent;
+  onAcknowledgeAlarm?: (alarmId: number) => void;
 }
 
-function FeedRow({ event }: RowProps) {
+function FeedRow({ event, onAcknowledgeAlarm }: RowProps) {
   const { t } = useTranslation();
   const tint = toneColor(event.tone);
 
   const timestampLabel = event.neverHeardFrom
     ? t('water.dashboard.feed.never_heard_from')
     : formatTimestamp(event.timestamp);
+
+  const isAlarm = event.type === 'alarm' || event.type === 'dry_unacked';
+  const showAckPill =
+    isAlarm && event.alarmId != null && !!onAcknowledgeAlarm;
 
   return (
     <View
@@ -99,16 +111,53 @@ function FeedRow({ event }: RowProps) {
           </Text>
         </View>
       ) : null}
-      <Text
-        style={{
-          fontSize: 11,
-          fontWeight: '600',
-          color: colors.gray[500],
-          letterSpacing: 0.3,
-        }}
-      >
-        {timestampLabel}
-      </Text>
+      {showAckPill ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('water.alarms.acknowledge')}
+          hitSlop={6}
+          onPress={() => {
+            haptic.light();
+            onAcknowledgeAlarm?.(event.alarmId!);
+          }}
+          style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: radius.full,
+              backgroundColor: colors.navy,
+            }}
+          >
+            <Icon name="check2-square" color={colors.white} size={12} />
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: '700',
+                color: colors.white,
+                letterSpacing: 0.2,
+              }}
+            >
+              {t('water.alarms.acknowledge')}
+            </Text>
+          </View>
+        </Pressable>
+      ) : (
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: '600',
+            color: colors.gray[500],
+            letterSpacing: 0.3,
+          }}
+        >
+          {timestampLabel}
+        </Text>
+      )}
     </View>
   );
 }
@@ -120,9 +169,18 @@ interface FeedSectionProps {
   count?: number;
   events: FeedEvent[];
   emptyLabel?: string;
+  onAcknowledgeAlarm?: (alarmId: number) => void;
 }
 
-function FeedSection({ title, icon, iconTint, count, events, emptyLabel }: FeedSectionProps) {
+function FeedSection({
+  title,
+  icon,
+  iconTint,
+  count,
+  events,
+  emptyLabel,
+  onAcknowledgeAlarm,
+}: FeedSectionProps) {
   if (events.length === 0 && !emptyLabel) return null;
 
   return (
@@ -159,13 +217,19 @@ function FeedSection({ title, icon, iconTint, count, events, emptyLabel }: FeedS
           <Text style={[type.caption, { color: colors.gray[500] }]}>{emptyLabel}</Text>
         </View>
       ) : (
-        events.map((e) => <FeedRow key={e.id} event={e} />)
+        events.map((e) => (
+          <FeedRow
+            key={e.id}
+            event={e}
+            onAcknowledgeAlarm={onAcknowledgeAlarm}
+          />
+        ))
       )}
     </View>
   );
 }
 
-export function LiveFeed({ sections }: LiveFeedProps) {
+export function LiveFeed({ sections, onAcknowledgeAlarm }: LiveFeedProps) {
   const { t } = useTranslation();
 
   const isEmpty = useMemo(
@@ -207,6 +271,7 @@ export function LiveFeed({ sections }: LiveFeedProps) {
         iconTint={colors.statusBad}
         count={sections.alarms.length}
         events={sections.alarms}
+        onAcknowledgeAlarm={onAcknowledgeAlarm}
       />
       <FeedSection
         title={t('water.dashboard.feed.silent')}

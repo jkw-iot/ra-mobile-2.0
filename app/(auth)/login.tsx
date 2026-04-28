@@ -32,6 +32,8 @@ import {
 } from '@/components';
 import { colors, spacing, type } from '@/theme';
 import { haptic } from '@/lib/haptics';
+import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
+import { useAuth } from '@/services/auth/AuthProvider';
 import {
   isFirebaseConfigured,
   loginWithEmail,
@@ -71,12 +73,25 @@ function GoogleSignInButton({
 
 export default function LoginScreen() {
   const { t, i18n } = useTranslation();
+  const { loginError, clearLoginError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [mfaCode, setMfaCode] = useState('');
+
+  // Backend-sync failures (Hono / Legacy unreachable after a
+  // successful Firebase auth) come through `useAuth().loginError`
+  // and trump the local form errors — they're more actionable
+  // than e.g. a transient invalid-credentials hint.
+  const displayedError = loginError
+    ? friendlyApiErrorMessage(loginError, t)
+    : error;
+  const dismissDisplayedError = () => {
+    if (loginError) clearLoginError();
+    setError(null);
+  };
 
   // Language picker — gives the user an explicit choice before
   // logging in. The default still flows through the i18n detector
@@ -111,6 +126,7 @@ export default function LoginScreen() {
     try {
       setSubmitting(true);
       setError(null);
+      clearLoginError();
       await loginWithGoogleIdToken(idToken);
       // AuthProvider picks it up via onAuthStateChanged
     } catch (err) {
@@ -125,6 +141,7 @@ export default function LoginScreen() {
 
   const onEmailSignIn = async () => {
     setError(null);
+    clearLoginError();
     if (!email.trim()) return setError(t('auth.email_required'));
     if (!password) return setError(t('auth.password_required'));
     if (!isFirebaseConfigured()) return setError(t('auth.firebase_not_configured'));
@@ -163,6 +180,7 @@ export default function LoginScreen() {
     try {
       setSubmitting(true);
       setError(null);
+      clearLoginError();
       await verifyTotpSignIn(mfaResolver, totpHint.uid, code);
       // AuthProvider's onAuthStateChanged picks it up and AuthGate redirects.
     } catch {
@@ -214,7 +232,9 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
+        {displayedError ? (
+          <ErrorBanner message={displayedError} onDismiss={dismissDisplayedError} />
+        ) : null}
 
         {mfaResolver ? (
           <View style={{ width: '100%' }}>

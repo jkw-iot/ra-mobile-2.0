@@ -396,8 +396,19 @@ function flattenLocationTree(
   return out;
 }
 
+/**
+ * Lightweight contract used by `buildLocationOptions` and
+ * `sensorMatchesLocation`. Accepting a structural shape (instead
+ * of `FlatSensor`) lets non-indeklima callers — e.g. the water
+ * map — reuse this location-tree machinery without forcing their
+ * domain types into the indeklima `Sensor` mould.
+ */
+export interface LocationFilterableSensor {
+  locationId: number | string | null;
+}
+
 export function buildLocationOptions(
-  sensors: readonly FlatSensor[],
+  sensors: readonly LocationFilterableSensor[],
   locations: IndeklimaLocation[] | undefined,
 ): LocationOption[] {
   // ── Count direct sensors per location id ───────────────
@@ -540,7 +551,7 @@ export function buildLocationOptions(
  * `null` means "no filter".
  */
 export function sensorMatchesLocation(
-  sensor: FlatSensor,
+  sensor: LocationFilterableSensor,
   allowedIds: ReadonlySet<string> | null,
 ): boolean {
   if (!allowedIds) return true;

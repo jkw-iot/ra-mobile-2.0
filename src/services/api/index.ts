@@ -26,5 +26,8 @@ export type {
   WaterHeartbeat,
   WaterConfig,
   WaterConfigUpdateBody,
+  WaterAlarmAckBody,
+  WaterMapDataItem,
+  WaterMapStatus,
   AdminSensor,
 } from './typed';
