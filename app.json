@@ -22,7 +22,11 @@
         "backgroundColor": "#1F2D3D"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -34,6 +38,13 @@
       "expo-secure-store",
       "expo-localization",
       "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Tillad RoomAlyzer at vælge billeder fra dit fotobibliotek, så du kan vedhæfte dokumentation når du kvitterer en vandalarm.",
+          "cameraPermission": "Tillad RoomAlyzer at bruge kameraet, så du kan tage billeder af lækager når du kvitterer en vandalarm."
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -48,7 +59,24 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "ecc986cf-dbbc-4747-bd2c-49eb52af6d2f"
+      },
+      "apiBaseUrl": "https://v2.roomalyzer.com",
+      "firebaseApiKey": "AIzaSyDDqdjPJciwVmsnP8ECP-v_V9iGeu5ZyX4",
+      "firebaseAuthDomain": "ra20-487212.firebaseapp.com",
+      "firebaseProjectId": "ra20-487212",
+      "firebaseStorageBucket": "ra20-487212.firebasestorage.app",
+      "firebaseMessagingSenderId": "322520521371",
+      "firebaseAppId": "1:322520521371:web:d9c2406f91728d752ac43e"
+    },
+    "owner": "jonkaflingwichmann",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ecc986cf-dbbc-4747-bd2c-49eb52af6d2f"
     }
   }
 }

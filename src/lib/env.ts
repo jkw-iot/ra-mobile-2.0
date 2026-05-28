@@ -1,11 +1,12 @@
 // ══════════════════════════════════════════════════════════════
 // Environment configuration
 //
-// Values are injected at build time via app.json's `extra` field
-// or (in dev) via a local .env file + expo-constants. The
-// placeholder pattern mirrors src/services/firebase.js on the
-// web — missing values mean "not configured" (dev bypass path
-// will never be used in a mobile build; Firebase is mandatory).
+// Values come from (in order):
+//   1. process.env.EXPO_PUBLIC_* — inlined by Metro at bundle time
+//      (MUST use static property access, e.g. process.env.EXPO_PUBLIC_FOO,
+//      never process.env[variable] — dynamic access is not inlined)
+//   2. app.json `extra` — baked into the native manifest at EAS build
+//   3. Sensible defaults for apiBaseUrl only
 // ══════════════════════════════════════════════════════════════
 import Constants from 'expo-constants';
 
@@ -25,43 +26,40 @@ type Extra = {
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
 
-function fromEnvOrExtra(envKey: string, extraKey: keyof Extra): string | undefined {
-  // process.env.EXPO_PUBLIC_* is inlined at build time by Metro.
-  const fromEnv = (process.env as Record<string, string | undefined>)[envKey];
-  return fromEnv ?? extra[extraKey];
+/** Prefer Metro-inlined env var, fall back to app.json `extra`. */
+function pick(inlined: string | undefined, fromExtra: string | undefined): string | undefined {
+  return inlined ?? fromExtra;
 }
 
 export const env = {
-  /** Hono API base URL. Defaults to production. */
   apiBaseUrl:
-    fromEnvOrExtra('EXPO_PUBLIC_API_BASE_URL', 'apiBaseUrl') ??
-    'https://v2.roomalyzer.com',
+    pick(process.env.EXPO_PUBLIC_API_BASE_URL, extra.apiBaseUrl) ?? 'https://v2.roomalyzer.com',
 
   firebase: {
-    apiKey: fromEnvOrExtra('EXPO_PUBLIC_FIREBASE_API_KEY', 'firebaseApiKey'),
-    authDomain: fromEnvOrExtra('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN', 'firebaseAuthDomain'),
-    projectId: fromEnvOrExtra('EXPO_PUBLIC_FIREBASE_PROJECT_ID', 'firebaseProjectId'),
-    appId: fromEnvOrExtra('EXPO_PUBLIC_FIREBASE_APP_ID', 'firebaseAppId'),
-    messagingSenderId: fromEnvOrExtra(
-      'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-      'firebaseMessagingSenderId',
+    apiKey: pick(process.env.EXPO_PUBLIC_FIREBASE_API_KEY, extra.firebaseApiKey),
+    authDomain: pick(process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN, extra.firebaseAuthDomain),
+    projectId: pick(process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID, extra.firebaseProjectId),
+    appId: pick(process.env.EXPO_PUBLIC_FIREBASE_APP_ID, extra.firebaseAppId),
+    messagingSenderId: pick(
+      process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      extra.firebaseMessagingSenderId,
     ),
-    storageBucket: fromEnvOrExtra(
-      'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET',
-      'firebaseStorageBucket',
+    storageBucket: pick(
+      process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      extra.firebaseStorageBucket,
     ),
   },
 
   googleOauth: {
-    iosClientId: fromEnvOrExtra('EXPO_PUBLIC_GOOGLE_OAUTH_IOS', 'googleOauthClientIdIos'),
-    androidClientId: fromEnvOrExtra(
-      'EXPO_PUBLIC_GOOGLE_OAUTH_ANDROID',
-      'googleOauthClientIdAndroid',
+    iosClientId: pick(process.env.EXPO_PUBLIC_GOOGLE_OAUTH_IOS, extra.googleOauthClientIdIos),
+    androidClientId: pick(
+      process.env.EXPO_PUBLIC_GOOGLE_OAUTH_ANDROID,
+      extra.googleOauthClientIdAndroid,
     ),
-    webClientId: fromEnvOrExtra('EXPO_PUBLIC_GOOGLE_OAUTH_WEB', 'googleOauthClientIdWeb'),
+    webClientId: pick(process.env.EXPO_PUBLIC_GOOGLE_OAUTH_WEB, extra.googleOauthClientIdWeb),
   },
 
-  sentryDsn: fromEnvOrExtra('EXPO_PUBLIC_SENTRY_DSN', 'sentryDsn'),
+  sentryDsn: pick(process.env.EXPO_PUBLIC_SENTRY_DSN, extra.sentryDsn),
 } as const;
 
 export function isFirebaseConfigured(): boolean {
