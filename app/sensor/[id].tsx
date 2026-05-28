@@ -27,7 +27,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, type ReactNode } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,11 +53,17 @@ import {
   useSensorHistoryHourly,
   useSensorThresholds,
   useSensorTypes,
+  useEffectiveScenario,
   buildTypeParamsMap,
   sensorSupports,
 } from '@/features/indeklima/hooks';
 import { LineChart } from '@/features/indeklima/LineChart';
 import { PresenceChart } from '@/features/indeklima/PresenceChart';
+import {
+  OutdoorWeatherTile,
+  useOutdoorAnchor,
+} from '@/features/indeklima/OutdoorWeatherCard';
+import { ScenarioBadge } from '@/features/indeklima/ScenarioBadge';
 import {
   normalizeThresholds,
   buildZonesForParam,
@@ -324,6 +330,20 @@ export default function SensorDetailScreen() {
     }
   }, [availableParams, param]);
 
+  // Whether the outdoor weather tile is renderable for this
+  // sensor — needs SOME usable position. Computed up here so the
+  // hook order stays stable across the early-return guards below.
+  const outdoorAnchor = useOutdoorAnchor(sensor);
+  const showOutdoorTile = outdoorAnchor != null;
+
+  // Effective scenario (sensor → location → global). We pull
+  // this up to the screen so we can shrink the hero's bottom
+  // padding when the badge is present — keeping the navy area
+  // from growing taller than its no-scenario baseline.
+  const effectiveScenario = useEffectiveScenario(sensor);
+  const showScenarioRow =
+    !effectiveScenario.isLoading && effectiveScenario.data != null;
+
   const canGoNext = !isSameDay(anchor, startOfDay(new Date()))
     && isAfter(startOfDay(new Date()), anchor);
 
@@ -404,12 +424,16 @@ export default function SensorDetailScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
       {Platform.OS === 'ios' ? <StatusBar barStyle="light-content" /> : null}
 
-      {/* Navy hero */}
+      {/* Navy hero
+          When the scenario badge is visible we shrink the bottom
+          padding so the dark area stays roughly the same height
+          as the no-scenario baseline (the badge fills the space
+          that would otherwise be empty navy). */}
       <View
         style={{
           backgroundColor: colors.navy,
           paddingTop: insets.top + spacing.xs,
-          paddingBottom: spacing.lg,
+          paddingBottom: showScenarioRow ? spacing.sm : spacing.lg,
         }}
       >
         {/* Row 1: back button + sensor name */}
@@ -475,6 +499,23 @@ export default function SensorDetailScreen() {
             />
           </View>
         </View>
+
+        {/* Row 3: active scenario — only rendered once we know there
+            IS one. Tight marginTop and the conditional bottom-pad
+            above keep the navy hero from growing visibly taller.
+            Sits right under the measurement-time row, almost
+            touching it, so the two read as a single metadata
+            stack rather than separate sections. */}
+        {showScenarioRow ? (
+          <View
+            style={{
+              paddingHorizontal: spacing.md,
+              marginTop: 2,
+            }}
+          >
+            <ScenarioBadge sensor={sensor} availableParams={availableParams} />
+          </View>
+        ) : null}
       </View>
 
       <ScrollView
@@ -492,59 +533,75 @@ export default function SensorDetailScreen() {
           />
         }
       >
-        {availableParams.length > 0 ? (
-          <View style={{ gap: spacing.sm }}>
-            {chunk(availableParams, 2).map((row, idx) => (
-              <View key={idx} style={{ flexDirection: 'row', gap: spacing.sm }}>
-                {row.map((p) => {
-                  // Presence shows a label ("Optaget"/"Ledig")
-                  // rather than a numeric reading.
-                  const value =
-                    p === 'pir'
-                      ? (() => {
-                          const n = toNumber(sensor[p]);
-                          if (n == null) return '—';
-                          return n > 0
-                            ? t('indeklima.sensors.presence.occupied')
-                            : t('indeklima.sensors.presence.vacant');
-                        })()
-                      : fmtNum(sensor[p], p === 'temp' ? 1 : 0);
-                  // Threshold tint — mirrors the chart zone logic so
-                  // the tile value colour matches the graph bands.
-                  // Presence is binary, and params without configured
-                  // thresholds fall back to the default text colour
-                  // (no green/yellow/red would be misleading).
-                  const valueColor = ((): string | undefined => {
-                    if (p === 'pir') return undefined;
-                    if (!hasThresholds(normalizedThresholds, p)) return undefined;
-                    const zone: ThresholdZone = zoneForValue(
-                      normalizedThresholds,
-                      p,
-                      toNumber(sensor[p]),
-                    );
-                    if (zone === 'red') return colors.statusBad;
-                    if (zone === 'yellow') return colors.statusWarn;
-                    return colors.statusGood;
-                  })();
-                  return (
-                    <KpiTile
-                      key={p}
-                      label={t(`indeklima.sensor_detail.params.${p}`)}
-                      value={value}
-                      unit={unitFor(p)}
-                      icon={paramIcon(p)}
-                      iconColor={paramColor(p)}
-                      valueColor={valueColor}
-                      active={activeParam === p}
-                      onPress={() => setParam(p)}
-                    />
-                  );
-                })}
-                {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
-              </View>
-            ))}
-          </View>
-        ) : null}
+        {(() => {
+          // Build a single ordered list of tile elements (param
+          // KPI tiles + optional outdoor-weather tile) and then
+          // chunk it into 2-up rows. This keeps the outdoor tile
+          // visually identical to the rest of the grid — it just
+          // takes the next available slot, including the trailing
+          // spacer when the param count is odd.
+          const tiles: ReactNode[] = availableParams.map((p) => {
+            // Presence shows a label ("Optaget"/"Ledig") rather
+            // than a numeric reading.
+            const value =
+              p === 'pir'
+                ? (() => {
+                    const n = toNumber(sensor[p]);
+                    if (n == null) return '—';
+                    return n > 0
+                      ? t('indeklima.sensors.presence.occupied')
+                      : t('indeklima.sensors.presence.vacant');
+                  })()
+                : fmtNum(sensor[p], p === 'temp' ? 1 : 0);
+            // Threshold tint — mirrors the chart zone logic so
+            // the tile value colour matches the graph bands.
+            // Presence is binary, and params without configured
+            // thresholds fall back to the default text colour
+            // (no green/yellow/red would be misleading).
+            const valueColor = ((): string | undefined => {
+              if (p === 'pir') return undefined;
+              if (!hasThresholds(normalizedThresholds, p)) return undefined;
+              const zone: ThresholdZone = zoneForValue(
+                normalizedThresholds,
+                p,
+                toNumber(sensor[p]),
+              );
+              if (zone === 'red') return colors.statusBad;
+              if (zone === 'yellow') return colors.statusWarn;
+              return colors.statusGood;
+            })();
+            return (
+              <KpiTile
+                key={p}
+                label={t(`indeklima.sensor_detail.params.${p}`)}
+                value={value}
+                unit={unitFor(p)}
+                icon={paramIcon(p)}
+                iconColor={paramColor(p)}
+                valueColor={valueColor}
+                active={activeParam === p}
+                onPress={() => setParam(p)}
+              />
+            );
+          });
+          if (showOutdoorTile) {
+            tiles.push(<OutdoorWeatherTile key="outdoor" sensor={sensor} />);
+          }
+          if (tiles.length === 0) return null;
+          return (
+            <View style={{ gap: spacing.sm }}>
+              {chunk(tiles, 2).map((row, idx) => (
+                <View
+                  key={idx}
+                  style={{ flexDirection: 'row', gap: spacing.sm }}
+                >
+                  {row}
+                  {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
+                </View>
+              ))}
+            </View>
+          );
+        })()}
 
         {availableParams.length > 0 ? (
           <SectionCard
@@ -592,7 +649,7 @@ export default function SensorDetailScreen() {
                   { id: 'day',   label: t('indeklima.sensor_detail.period.day') },
                   { id: 'week',  label: t('indeklima.sensor_detail.period.week') },
                   { id: 'month', label: t('indeklima.sensor_detail.period.month') },
-                  { id: 'year',  label: t('indeklima.sensor_detail.period.year') },
+                  { id: 'quarter', label: t('indeklima.sensor_detail.period.quarter') },
                 ]}
                 ariaLabel={t('indeklima.sensor_detail.history')}
               />

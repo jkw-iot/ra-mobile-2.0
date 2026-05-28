@@ -8,12 +8,10 @@
 import {
   addDays,
   addMonths,
-  addYears,
   format,
   isSameDay,
   subDays,
   subMonths,
-  subYears,
 } from 'date-fns';
 
 import { colors } from '@/theme';
@@ -42,7 +40,7 @@ export function rangeForAnchor(period: DetailPeriod, anchor: Date) {
   if (period === 'month') {
     return { from: ymd(subMonths(anchor, 1)), to: ymd(anchor), useRaw: false };
   }
-  return { from: ymd(subYears(anchor, 1)), to: ymd(anchor), useRaw: false };
+  return { from: ymd(subMonths(anchor, 3)), to: ymd(anchor), useRaw: false };
 }
 
 /**
@@ -183,7 +181,7 @@ export function stepAnchor(
   if (period === 'day') return direction < 0 ? subDays(anchor, 1) : addDays(anchor, 1);
   if (period === 'week') return direction < 0 ? subDays(anchor, 7) : addDays(anchor, 7);
   if (period === 'month') return direction < 0 ? subMonths(anchor, 1) : addMonths(anchor, 1);
-  return direction < 0 ? subYears(anchor, 1) : addYears(anchor, 1);
+  return direction < 0 ? subMonths(anchor, 3) : addMonths(anchor, 3);
 }
 
 /**
@@ -210,6 +208,6 @@ export function formatRangeLabel(
     const start = subMonths(anchor, 1);
     return `${start.getDate()}. ${MONTHS_DA[start.getMonth()]} – ${anchor.getDate()}. ${MONTHS_DA[anchor.getMonth()]}`;
   }
-  const start = subYears(anchor, 1);
+  const start = subMonths(anchor, 3);
   return `${MONTHS_DA[start.getMonth()]} ${start.getFullYear()} – ${MONTHS_DA[anchor.getMonth()]} ${anchor.getFullYear()}`;
 }

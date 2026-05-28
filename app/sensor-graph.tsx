@@ -62,7 +62,7 @@ const VALID_PERIODS: readonly DetailPeriod[] = [
   'day',
   'week',
   'month',
-  'year',
+  'quarter',
 ] as const;
 
 export default function SensorGraphFullscreen() {
