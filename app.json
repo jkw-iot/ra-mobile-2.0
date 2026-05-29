@@ -64,7 +64,6 @@
         "projectId": "ecc986cf-dbbc-4747-bd2c-49eb52af6d2f"
       },
       "apiBaseUrl": "https://v2.roomalyzer.com",
-      "firebaseApiKey": "AIzaSyDDqdjPJciwVmsnP8ECP-v_V9iGeu5ZyX4",
       "firebaseAuthDomain": "ra20-487212.firebaseapp.com",
       "firebaseProjectId": "ra20-487212",
       "firebaseStorageBucket": "ra20-487212.firebasestorage.app",

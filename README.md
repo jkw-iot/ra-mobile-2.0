@@ -122,6 +122,19 @@ eas build --profile production  --platform all
 - **preview** — internal distribution, production API
 - **production** — TestFlight / Play Store, auto version bump
 
+Firebase API key for preview/production builds is **not** in git.
+Set it once on the Expo project (after copying `.env.example` → `.env`
+for local dev):
+
+```bash
+eas env:create --scope project \
+  --name EXPO_PUBLIC_FIREBASE_API_KEY \
+  --value "<your-firebase-web-api-key>" \
+  --environment preview \
+  --environment production \
+  --visibility plaintext
+```
+
 ---
 
 ## Configuration notes

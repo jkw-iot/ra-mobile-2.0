@@ -20,13 +20,7 @@
       "channel": "preview",
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://v2.roomalyzer.com",
-        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDDqdjPJciwVmsnP8ECP-v_V9iGeu5ZyX4",
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "ra20-487212.firebaseapp.com",
-        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "ra20-487212",
-        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "ra20-487212.firebasestorage.app",
-        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "322520521371",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:322520521371:web:d9c2406f91728d752ac43e"
+        "EXPO_PUBLIC_API_BASE_URL": "https://v2.roomalyzer.com"
       }
     },
     "production": {
@@ -34,13 +28,7 @@
       "channel": "production",
       "environment": "production",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://v2.roomalyzer.com",
-        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDDqdjPJciwVmsnP8ECP-v_V9iGeu5ZyX4",
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "ra20-487212.firebaseapp.com",
-        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "ra20-487212",
-        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "ra20-487212.firebasestorage.app",
-        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "322520521371",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:322520521371:web:d9c2406f91728d752ac43e"
+        "EXPO_PUBLIC_API_BASE_URL": "https://v2.roomalyzer.com"
       }
     }
   },

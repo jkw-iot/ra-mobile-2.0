@@ -421,8 +421,23 @@ The fix belongs on the Legacy side.
   the user staring at a blank screen.
 - Every async call wrapped in try/catch (or `useQuery` error surface).
 - Never trust client input; validate before sending to the API.
-- No secrets in the client bundle. Values go in `app.json.extra` or
-  `EXPO_PUBLIC_*` env vars (publicly inspectable, so only public keys).
+
+### Secrets — NEVER commit to git
+
+GitHub secret scanning flags Google API keys even when they are
+"public" Firebase web keys. **Never write API keys, tokens, or
+private keys into any tracked file** — including `eas.json`,
+`app.json`, source code, or README.
+
+| Context | Where the value lives |
+|---------|----------------------|
+| Local dev | `.env` (gitignored — copy from `.env.example`) |
+| EAS preview / production | `eas env:create` on the Expo project |
+| Non-secret Firebase IDs | `app.json` `extra` is OK (projectId, authDomain, …) |
+
+The pre-commit hook (`scripts/check-no-secrets.mjs`) blocks
+`AIza…` patterns — do not bypass it. If you need to add a new
+allowed pattern, extend the script, don't disable the hook.
 
 ---
 
