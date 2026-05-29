@@ -13,10 +13,13 @@ import {
   indeklimaApi,
   sensorTypesApi,
   type IndeklimaLocation,
+  type ScopeThresholds,
   type Sensor,
   type SensorPositions,
   type SensorTypeDef,
+  type ThresholdScopeType,
 } from '@/services/api';
+import { fetchOutdoorWeather } from '@/services/openMeteo';
 import { cacheTiers } from '@/lib/queryClient';
 import { useTenantStore } from '@/stores/tenantStore';
 
@@ -557,4 +560,166 @@ export function sensorMatchesLocation(
   if (!allowedIds) return true;
   if (sensor.locationId == null) return false;
   return allowedIds.has(String(sensor.locationId));
+}
+
+// ── Outdoor weather (Open-Meteo) ──────────────────────────
+//
+// Used by the sensor detail screen to enrich the indoor reading
+// with a small "what's it like outside?" card. The query is
+// keyed off coordinates rounded to 3 decimals (~110 m precision)
+// so two sensors in the same building share a single network
+// request and a single cache entry.
+//
+// `staleTime` is 15 min — Open-Meteo refreshes hourly and we
+// don't want a busy detail-page user to thrash the public API.
+// `gcTime` survives a tenant switch so weather data shown to one
+// user does NOT silently leak between tenants — round-down keys
+// only collide for genuinely co-located sensors.
+const OUTDOOR_WEATHER_STALE_MS = 15 * 60 * 1000;
+const OUTDOOR_WEATHER_GC_MS = 60 * 60 * 1000;
+
+function roundCoord(n: number): number {
+  return Math.round(n * 1000) / 1000;
+}
+
+export function useOutdoorWeather(lat: number | null, lng: number | null) {
+  const enabled = lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng);
+  const latKey = enabled ? roundCoord(lat as number) : null;
+  const lngKey = enabled ? roundCoord(lng as number) : null;
+  return useQuery({
+    queryKey: ['weather', 'open-meteo', { lat: latKey, lng: lngKey }],
+    queryFn: ({ signal }) => fetchOutdoorWeather(lat as number, lng as number, signal),
+    enabled,
+    staleTime: OUTDOOR_WEATHER_STALE_MS,
+    gcTime: OUTDOOR_WEATHER_GC_MS,
+    retry: 1,
+    meta: { cacheTier: 'snapshot' as const },
+  });
+}
+
+// ── Scope-based thresholds (sensor / location / global) ───
+//
+// Returns the saved thresholds + assigned `scenarioId` for a
+// given scope. Backed by `/api/indeklima/thresholds` — the same
+// endpoint the web admin uses. Cached aggressively because
+// thresholds and scenario assignments change rarely.
+//
+// Passing `enabled: false` (e.g. while we don't have a scopeId
+// yet) keeps the query dormant without losing the queryKey.
+export function useScopeThresholds(
+  scopeType: ThresholdScopeType,
+  scopeId: number | string | null | undefined,
+  options?: { enabled?: boolean },
+) {
+  const tenantId = useTenantStore((s) => s.activeTenantId);
+  const enabled =
+    (options?.enabled ?? true)
+    && tenantId !== null
+    && (scopeType === 'global' || (scopeId !== null && scopeId !== undefined));
+  const scopeIdKey = scopeType === 'global' ? null : scopeId ?? null;
+  return useQuery<ScopeThresholds | null>({
+    queryKey: [
+      'indeklima',
+      'scope-thresholds',
+      { scopeType, scopeId: scopeIdKey, tenantId },
+    ],
+    queryFn: () => indeklimaApi.getScopeThresholds(scopeType, scopeIdKey),
+    enabled,
+    staleTime: cacheTiers.downsampled.staleTime,
+    gcTime: cacheTiers.downsampled.gcTime,
+    meta: { cacheTier: 'downsampled' as const },
+  });
+}
+
+// ── Effective scenario for a sensor ───────────────────────
+//
+// Walks the standard scope hierarchy used by the web app's
+// DeviceManagement → SensorDetailModal:
+//   1. Sensor scope (using the sensor's id)
+//   2. Location scope (using `sensor.locationId`)
+//   3. Global scope
+// First scope that returns a non-null `scenarioId` wins. The
+// thresholds and metadata returned alongside come from the
+// winning scope's API response.
+//
+// Result shape:
+//   - `null` while loading or when no scope yields a scenario
+//   - `{ scenarioId, source, thresholds, scopeId }` when resolved
+//
+// Source is exposed so the UI can surface "inherited from
+// location/global" hints in the detail sheet.
+export type ScenarioScopeSource = 'sensor' | 'location' | 'global';
+
+export interface EffectiveScenario {
+  scenarioId: string;
+  source: ScenarioScopeSource;
+  thresholds: ScopeThresholds extends null
+    ? Record<string, unknown> | null
+    : Record<string, unknown> | null;
+  scopeId: number | string | null;
+}
+
+export function useEffectiveScenario(
+  sensor: { id: number | string; locationId: number | string | null } | null | undefined,
+): {
+  data: EffectiveScenario | null;
+  isLoading: boolean;
+} {
+  const sensorId = sensor?.id ?? null;
+  const locationId = sensor?.locationId ?? null;
+
+  const sensorQ = useScopeThresholds('sensor', sensorId, {
+    enabled: sensorId !== null,
+  });
+  const locationQ = useScopeThresholds('location', locationId, {
+    enabled: locationId !== null && !sensorQ.data?.scenarioId,
+  });
+  const globalQ = useScopeThresholds('global', null, {
+    enabled: !sensorQ.data?.scenarioId && !locationQ.data?.scenarioId,
+  });
+
+  const isLoading =
+    (sensorQ.isLoading && sensorQ.fetchStatus !== 'idle')
+    || (locationQ.isLoading && locationQ.fetchStatus !== 'idle')
+    || (globalQ.isLoading && globalQ.fetchStatus !== 'idle');
+
+  const pickThresholds = (raw: ScopeThresholds | null | undefined) =>
+    raw && typeof raw === 'object' && 'thresholds' in raw && raw.thresholds
+      ? (raw.thresholds as Record<string, unknown>)
+      : null;
+
+  if (sensorQ.data?.scenarioId) {
+    return {
+      data: {
+        scenarioId: sensorQ.data.scenarioId,
+        source: 'sensor',
+        thresholds: pickThresholds(sensorQ.data),
+        scopeId: sensorId,
+      },
+      isLoading: false,
+    };
+  }
+  if (locationQ.data?.scenarioId) {
+    return {
+      data: {
+        scenarioId: locationQ.data.scenarioId,
+        source: 'location',
+        thresholds: pickThresholds(locationQ.data),
+        scopeId: locationId,
+      },
+      isLoading: false,
+    };
+  }
+  if (globalQ.data?.scenarioId) {
+    return {
+      data: {
+        scenarioId: globalQ.data.scenarioId,
+        source: 'global',
+        thresholds: pickThresholds(globalQ.data),
+        scopeId: null,
+      },
+      isLoading: false,
+    };
+  }
+  return { data: null, isLoading };
 }

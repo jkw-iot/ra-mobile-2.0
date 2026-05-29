@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Button,
@@ -30,7 +31,7 @@ import {
   SegmentedControl,
   Icon,
 } from '@/components';
-import { colors, spacing, type } from '@/theme';
+import { colors, spacing, radius, type } from '@/theme';
 import { haptic } from '@/lib/haptics';
 import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 import { useAuth } from '@/services/auth/AuthProvider';
@@ -74,6 +75,7 @@ function GoogleSignInButton({
 export default function LoginScreen() {
   const { t, i18n } = useTranslation();
   const { loginError, clearLoginError } = useAuth();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -197,218 +199,256 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.bgPrimary }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          padding: spacing.xl,
-          justifyContent: 'center',
-        }}
-        keyboardShouldPersistTaps="handled"
+    <View style={{ flex: 1, backgroundColor: colors.navy }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View
-          style={{
-            alignSelf: 'center',
-            width: 220,
-            marginBottom: spacing.xl,
-          }}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + spacing.xl }}
+          keyboardShouldPersistTaps="handled"
         >
-          <SegmentedControl<SupportedLanguage>
-            value={currentLang}
-            onChange={(lang) => setLanguage(lang)}
-            options={langOptions}
-            size="sm"
-            ariaLabel={t('auth.choose_language')}
-          />
-        </View>
-
-        <View style={{ alignItems: 'center', marginBottom: spacing.xxl }}>
-          <Logo width={240} />
-          <Text style={[type.caption, { textAlign: 'center', marginTop: spacing.md }]}>
-            {t('auth.welcome_subtitle')}
-          </Text>
-        </View>
-
-        {displayedError ? (
-          <ErrorBanner message={displayedError} onDismiss={dismissDisplayedError} />
-        ) : null}
-
-        {mfaResolver ? (
-          <View style={{ width: '100%' }}>
-            <View style={{ marginBottom: spacing.md }}>
-              <Text style={[type.sectionLabel, { marginBottom: 4 }]}>
-                {t('auth.mfa.challenge_title')}
-              </Text>
-              <Text style={type.caption}>{t('auth.mfa.challenge_subtitle')}</Text>
-            </View>
-            <FormField label={t('auth.mfa.code_label')}>
-              <FormInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="number-pad"
-                maxLength={6}
-                value={mfaCode}
-                onChangeText={setMfaCode}
-                editable={!submitting}
-                onSubmitEditing={onMfaVerify}
-                autoFocus
-              />
-            </FormField>
-            <Button
-              label={t('auth.mfa.verify')}
-              onPress={onMfaVerify}
-              loading={submitting}
-              fullWidth
-            />
-            <View style={{ marginTop: spacing.md }}>
-              <Button
-                label={t('common.cancel')}
-                onPress={onMfaCancel}
-                variant="ghost"
-                fullWidth
-                disabled={submitting}
-              />
-            </View>
+          {/* ── Hero header ── */}
+          <View
+            style={{
+              paddingTop: insets.top + spacing.xl,
+              paddingBottom: spacing.xxl,
+              paddingHorizontal: spacing.xl,
+              alignItems: 'center',
+            }}
+          >
+            <Logo variant="white" width={200} />
+            <Text
+              style={[
+                type.caption,
+                { color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginTop: spacing.sm },
+              ]}
+            >
+              {t('auth.welcome_subtitle')}
+            </Text>
           </View>
-        ) : (
-          <View style={{ width: '100%' }}>
-            <FormField label={t('auth.email')}>
-              <FormInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-                editable={!submitting}
+
+          {/* ── Content area ── */}
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: colors.bgPrimary,
+              borderTopLeftRadius: radius.xl,
+              borderTopRightRadius: radius.xl,
+              paddingHorizontal: spacing.xl,
+              paddingTop: spacing.xl,
+            }}
+          >
+            {/* Language picker */}
+            <View style={{ alignSelf: 'center', width: 220, marginBottom: spacing.xl }}>
+              <SegmentedControl<SupportedLanguage>
+                value={currentLang}
+                onChange={(lang) => setLanguage(lang)}
+                options={langOptions}
+                size="sm"
+                ariaLabel={t('auth.choose_language')}
               />
-            </FormField>
+            </View>
 
-            <FormField label={t('auth.password')}>
-              <FormInput
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="password"
-                value={password}
-                onChangeText={setPassword}
-                editable={!submitting}
-                onSubmitEditing={onEmailSignIn}
-              />
-            </FormField>
-
-            <Button
-              label={t('auth.sign_in')}
-              onPress={onEmailSignIn}
-              loading={submitting}
-              fullWidth
-            />
-
-            {googleEnabled ? (
-              <View style={{ marginTop: spacing.md }}>
-                <GoogleSignInButton
-                  label={t('auth.sign_in_with_google')}
-                  disabled={submitting}
-                  onToken={handleGoogleToken}
-                />
+            {displayedError ? (
+              <View style={{ marginBottom: spacing.md }}>
+                <ErrorBanner message={displayedError} onDismiss={dismissDisplayedError} />
               </View>
             ) : null}
-          </View>
-        )}
 
-        {!isFirebaseConfigured() ? (
-          <View style={{ marginTop: spacing.lg }}>
-            <ErrorBanner
-              tone="warn"
-              message={t('auth.firebase_not_configured')}
-            />
-          </View>
-        ) : null}
+            {/* ── Form card ── */}
+            <View
+              style={{
+                backgroundColor: colors.white,
+                borderRadius: radius.lg,
+                padding: spacing.lg,
+                marginBottom: spacing.xl,
+                shadowColor: colors.black,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.07,
+                shadowRadius: 4,
+                elevation: 2,
+              }}
+            >
+              {mfaResolver ? (
+                <View>
+                  {/* MFA header */}
+                  <View style={{ alignItems: 'center', marginBottom: spacing.lg }}>
+                    <View
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 26,
+                        backgroundColor: colors.brand + '1A',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: spacing.sm,
+                      }}
+                    >
+                      <Icon name="shield-lock" size={26} color={colors.brand} />
+                    </View>
+                    <Text style={[type.bodyStrong, { textAlign: 'center' }]}>
+                      {t('auth.mfa.challenge_title')}
+                    </Text>
+                    <Text
+                      style={[
+                        type.caption,
+                        { textAlign: 'center', marginTop: spacing.xs },
+                      ]}
+                    >
+                      {t('auth.mfa.challenge_subtitle')}
+                    </Text>
+                  </View>
 
-        {/* Feature highlights — only shown in the regular login flow,
-            not during the MFA challenge so the user can focus on the
-            6-digit code without distraction. */}
-        {!mfaResolver ? (
-          <View style={{ marginTop: spacing.xxl }}>
-            <View style={{ gap: spacing.sm }}>
-              {features.map((f) => (
-                <View
-                  key={f.key}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: spacing.md,
-                  }}
+                  <FormField label={t('auth.mfa.code_label')}>
+                    <FormInput
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      value={mfaCode}
+                      onChangeText={setMfaCode}
+                      editable={!submitting}
+                      onSubmitEditing={onMfaVerify}
+                      autoFocus
+                    />
+                  </FormField>
+                  <Button
+                    label={t('auth.mfa.verify')}
+                    onPress={onMfaVerify}
+                    loading={submitting}
+                    fullWidth
+                  />
+                  <View style={{ marginTop: spacing.md }}>
+                    <Button
+                      label={t('common.cancel')}
+                      onPress={onMfaCancel}
+                      variant="ghost"
+                      fullWidth
+                      disabled={submitting}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <View>
+                  <FormField label={t('auth.email')}>
+                    <FormInput
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="email"
+                      keyboardType="email-address"
+                      value={email}
+                      onChangeText={setEmail}
+                      editable={!submitting}
+                    />
+                  </FormField>
+
+                  <FormField label={t('auth.password')}>
+                    <FormInput
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoComplete="password"
+                      value={password}
+                      onChangeText={setPassword}
+                      editable={!submitting}
+                      onSubmitEditing={onEmailSignIn}
+                    />
+                  </FormField>
+
+                  <Button
+                    label={t('auth.sign_in')}
+                    onPress={onEmailSignIn}
+                    loading={submitting}
+                    fullWidth
+                  />
+
+                  {googleEnabled ? (
+                    <View style={{ marginTop: spacing.md }}>
+                      <GoogleSignInButton
+                        label={t('auth.sign_in_with_google')}
+                        disabled={submitting}
+                        onToken={handleGoogleToken}
+                      />
+                    </View>
+                  ) : null}
+                </View>
+              )}
+            </View>
+
+            {!isFirebaseConfigured() ? (
+              <View style={{ marginBottom: spacing.lg }}>
+                <ErrorBanner tone="warn" message={t('auth.firebase_not_configured')} />
+              </View>
+            ) : null}
+
+            {/* Feature highlights — hidden during MFA challenge */}
+            {!mfaResolver ? (
+              <View style={{ gap: spacing.sm }}>
+                {features.map((f) => (
+                  <View
+                    key={f.key}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
+                  >
+                    <View
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor: colors.brand + '1A',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Icon name={f.icon} size={18} color={colors.brand} />
+                    </View>
+                    <Text style={[type.body, { flex: 1 }]}>
+                      {t(`auth.features.${f.key}`)}
+                    </Text>
+                  </View>
+                ))}
+
+                <Pressable
+                  onPress={openIotFabrikken}
+                  accessibilityRole="link"
+                  accessibilityLabel="iot-fabrikken.com"
+                  style={({ pressed }) => ({
+                    marginTop: spacing.sm,
+                    alignSelf: 'center',
+                    opacity: pressed ? 0.6 : 1,
+                  })}
                 >
                   <View
                     style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 18,
-                      backgroundColor: colors.brandAccent + '1A',
+                      flexDirection: 'row',
                       alignItems: 'center',
-                      justifyContent: 'center',
+                      gap: spacing.xs,
+                      paddingVertical: spacing.xs,
+                      paddingHorizontal: spacing.sm,
                     }}
                   >
-                    <Icon
-                      name={f.icon}
-                      size={18}
-                      color={colors.brandAccent}
-                    />
+                    <Text style={[type.caption, { color: colors.gray[500] }]}>
+                      {t('auth.learn_more')}
+                    </Text>
+                    <Text
+                      style={[
+                        type.caption,
+                        {
+                          color: colors.brand,
+                          fontWeight: '600',
+                          textDecorationLine: 'underline',
+                        },
+                      ]}
+                    >
+                      iot-fabrikken.com
+                    </Text>
                   </View>
-                  <Text
-                    style={[
-                      type.body,
-                      { flex: 1, color: colors.gray[700] },
-                    ]}
-                  >
-                    {t(`auth.features.${f.key}`)}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            <Pressable
-              onPress={openIotFabrikken}
-              accessibilityRole="link"
-              accessibilityLabel="iot-fabrikken.com"
-              style={({ pressed }) => ({
-                marginTop: spacing.lg,
-                alignSelf: 'center',
-                opacity: pressed ? 0.6 : 1,
-              })}
-            >
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: spacing.xs,
-                  paddingVertical: spacing.xs,
-                  paddingHorizontal: spacing.sm,
-                }}
-              >
-                <Text style={[type.caption, { color: colors.gray[500] }]}>
-                  {t('auth.learn_more')}
-                </Text>
-                <Text
-                  style={[
-                    type.caption,
-                    {
-                      color: colors.brandAccent,
-                      fontWeight: '600',
-                      textDecorationLine: 'underline',
-                    },
-                  ]}
-                >
-                  iot-fabrikken.com
-                </Text>
+                </Pressable>
               </View>
-            </Pressable>
+            ) : null}
           </View>
-        ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }

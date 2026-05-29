@@ -81,6 +81,8 @@ export interface paths {
                                 coverage: number;
                                 /** @description Battery level (mV from legacy, mapped to 0-3 in mock) */
                                 battery: number;
+                                /** @description Admin-defined display order (Legacy may also send camelCase sortOrder; proxy passes JSON through) */
+                                sort_order?: number;
                             }[];
                         }[];
                     };
@@ -1136,7 +1138,7 @@ export interface paths {
                             location: string;
                             /** @description Whether the alert rule is turned on and will fire notifications */
                             active: boolean;
-                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould','batt' */
+                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould' (battery alerts are handled by sensor-alerts subscriptions, not here) */
                             param: string;
                             /** @description UI rule vocabulary: 'high' (greater_than), 'low' (less_than), or 'fixed' (PIR only — mapped to greater_than limit=0 on Legacy) */
                             rule: string;
@@ -1205,7 +1207,7 @@ export interface paths {
                             location: string;
                             /** @description Whether the alert rule is turned on and will fire notifications */
                             active: boolean;
-                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould','batt' */
+                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould' (battery alerts are handled by sensor-alerts subscriptions, not here) */
                             param: string;
                             /** @description UI rule vocabulary: 'high' (greater_than), 'low' (less_than), or 'fixed' (PIR only — mapped to greater_than limit=0 on Legacy) */
                             rule: string;
@@ -1268,7 +1270,7 @@ export interface paths {
                         location?: string;
                         /** @description Whether the alert rule is turned on and will fire notifications */
                         active?: boolean;
-                        /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould','batt' */
+                        /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould' (battery alerts are handled by sensor-alerts subscriptions, not here) */
                         param?: string;
                         /** @description UI rule vocabulary: 'high' (greater_than), 'low' (less_than), or 'fixed' (PIR only — mapped to greater_than limit=0 on Legacy) */
                         rule?: string;
@@ -1308,7 +1310,7 @@ export interface paths {
                             location: string;
                             /** @description Whether the alert rule is turned on and will fire notifications */
                             active: boolean;
-                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould','batt' */
+                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould' (battery alerts are handled by sensor-alerts subscriptions, not here) */
                             param: string;
                             /** @description UI rule vocabulary: 'high' (greater_than), 'low' (less_than), or 'fixed' (PIR only — mapped to greater_than limit=0 on Legacy) */
                             rule: string;
@@ -1407,7 +1409,7 @@ export interface paths {
                             location: string;
                             /** @description Whether the alert rule is turned on and will fire notifications */
                             active: boolean;
-                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould','batt' */
+                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould' (battery alerts are handled by sensor-alerts subscriptions, not here) */
                             param: string;
                             /** @description UI rule vocabulary: 'high' (greater_than), 'low' (less_than), or 'fixed' (PIR only — mapped to greater_than limit=0 on Legacy) */
                             rule: string;
@@ -1466,7 +1468,7 @@ export interface paths {
                             location?: string;
                             /** @description Whether the alert rule is turned on and will fire notifications */
                             active?: boolean;
-                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould','batt' */
+                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould' (battery alerts are handled by sensor-alerts subscriptions, not here) */
                             param?: string;
                             /** @description UI rule vocabulary: 'high' (greater_than), 'low' (less_than), or 'fixed' (PIR only — mapped to greater_than limit=0 on Legacy) */
                             rule?: string;
@@ -1676,7 +1678,7 @@ export interface paths {
                             location: string;
                             /** @description Whether the alert rule is turned on and will fire notifications */
                             active: boolean;
-                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould','batt' */
+                            /** @description UI param vocabulary: 'temp','rh','abs_hum','co2','voc','db','lux','pir','mould' (battery alerts are handled by sensor-alerts subscriptions, not here) */
                             param: string;
                             /** @description UI rule vocabulary: 'high' (greater_than), 'low' (less_than), or 'fixed' (PIR only — mapped to greater_than limit=0 on Legacy) */
                             rule: string;
@@ -4890,8 +4892,10 @@ export interface paths {
                             /** @description Signal strength in dBm (negative number, e.g. -78). Null if unknown */
                             signalStrength: number | null;
                             firmware: string;
-                            /** @description SHA-256 hash or UUID uniquely identifying this sensor device */
+                            /** @description Primary SHA-256 QR hash (all sensor types). Used in public QR URLs: https://app.roomalyzer.com/<hash> */
                             uuid?: string;
+                            /** @description Second SHA-256 hash present ONLY on old A-series sensors (Full/Mini, sensorType 0/1). Physical QR stickers on these units may encode either uuid or hardwareUuid — the scanner checks both. */
+                            hardwareUuid?: string;
                             /** @description Latest metric readings (temp, hum, co2, voc, sound, light, occupancy) */
                             metrics?: {
                                 [key: string]: unknown;
@@ -4962,8 +4966,10 @@ export interface paths {
                             /** @description Signal strength in dBm (negative number, e.g. -78). Null if unknown */
                             signalStrength: number | null;
                             firmware: string;
-                            /** @description SHA-256 hash or UUID uniquely identifying this sensor device */
+                            /** @description Primary SHA-256 QR hash (all sensor types). Used in public QR URLs: https://app.roomalyzer.com/<hash> */
                             uuid?: string;
+                            /** @description Second SHA-256 hash present ONLY on old A-series sensors (Full/Mini, sensorType 0/1). Physical QR stickers on these units may encode either uuid or hardwareUuid — the scanner checks both. */
+                            hardwareUuid?: string;
                             /** @description Latest metric readings (temp, hum, co2, voc, sound, light, occupancy) */
                             metrics?: {
                                 [key: string]: unknown;
@@ -5037,8 +5043,10 @@ export interface paths {
                             /** @description Signal strength in dBm (negative number, e.g. -78). Null if unknown */
                             signalStrength: number | null;
                             firmware: string;
-                            /** @description SHA-256 hash or UUID uniquely identifying this sensor device */
+                            /** @description Primary SHA-256 QR hash (all sensor types). Used in public QR URLs: https://app.roomalyzer.com/<hash> */
                             uuid?: string;
+                            /** @description Second SHA-256 hash present ONLY on old A-series sensors (Full/Mini, sensorType 0/1). Physical QR stickers on these units may encode either uuid or hardwareUuid — the scanner checks both. */
+                            hardwareUuid?: string;
                             /** @description Latest metric readings (temp, hum, co2, voc, sound, light, occupancy) */
                             metrics?: {
                                 [key: string]: unknown;
@@ -5103,8 +5111,10 @@ export interface paths {
                             /** @description Signal strength in dBm (negative number, e.g. -78). Null if unknown */
                             signalStrength: number | null;
                             firmware: string;
-                            /** @description SHA-256 hash or UUID uniquely identifying this sensor device */
+                            /** @description Primary SHA-256 QR hash (all sensor types). Used in public QR URLs: https://app.roomalyzer.com/<hash> */
                             uuid?: string;
+                            /** @description Second SHA-256 hash present ONLY on old A-series sensors (Full/Mini, sensorType 0/1). Physical QR stickers on these units may encode either uuid or hardwareUuid — the scanner checks both. */
+                            hardwareUuid?: string;
                             /** @description Latest metric readings (temp, hum, co2, voc, sound, light, occupancy) */
                             metrics?: {
                                 [key: string]: unknown;
@@ -5164,6 +5174,55 @@ export interface paths {
                 };
             };
         };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/sensors/resolve-uuid/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve a scanned QR hash to a sensor. Checks both uuid (primary hash, all sensors) and hardwareUuid (second hash on old A-series Full/Mini sensors). Returns null when no match is found. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    hash: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Matched sensor, or null if no sensor has this hash as uuid or hardwareUuid */
+                            sensor: {
+                                id: number;
+                                sensorId: string;
+                                name: string | null;
+                                status: string;
+                                locationId: number | null;
+                                uuid?: string;
+                                hardwareUuid?: string | null;
+                            } | null;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -7713,6 +7772,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/users/{id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the user_tenant_audit log for a user (scoped to admin's manageable tenants) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: number;
+                            actor_user_id: number | null;
+                            actor_email: string;
+                            target_user_id: number | null;
+                            target_email: string;
+                            tenant_id: number | null;
+                            tenant_name: string;
+                            role_id: number | null;
+                            role_slug: string | null;
+                            role_name: string | null;
+                            /** @enum {string} */
+                            action: "assigned" | "removed" | "role_changed" | "user_created" | "user_deleted";
+                            metadata: {
+                                [key: string]: unknown;
+                            } | null;
+                            created_at: string;
+                        }[];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile": {
         parameters: {
             query?: never;
@@ -8547,6 +8661,48 @@ export interface paths {
                             scopes?: string[];
                             key_name?: string;
                             error?: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tenants/active-address": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get address fields for the active tenant. Any authenticated user can access this (no superadmin required). Used by sensor activation to geocode the tenant location for smart map placement. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            address: string | null;
+                            street: string | null;
+                            zip: string | null;
+                            city: string | null;
+                            country: string | null;
                         };
                     };
                 };

@@ -27,6 +27,20 @@ export type SensorThresholds = JsonResponse<
   'get'
 >;
 
+/**
+ * Scope-based thresholds response: the effective limits AND the
+ * scenario id that produced them, for a single (scope_type,
+ * scope_id) pair. Returned by `/api/indeklima/thresholds` and
+ * documented in the OpenAPI spec as nullable — `null` means
+ * "no thresholds configured at this scope".
+ */
+export type ScopeThresholds = JsonResponse<
+  '/api/indeklima/thresholds',
+  'get'
+>;
+
+export type ThresholdScopeType = 'sensor' | 'location' | 'global';
+
 export type IndeklimaLocation = JsonResponse<
   '/api/indeklima/locations',
   'get'
@@ -81,6 +95,29 @@ export const indeklimaApi = {
     apiClient.get<SensorThresholds>(
       `/indeklima/sensors/${encodeURIComponent(String(id))}/thresholds`,
     ),
+
+  /**
+   * Scope-based thresholds + assigned scenario for a (scope_type,
+   * scope_id) pair. Used to surface the "active scenario" on the
+   * sensor detail screen — the same response is consumed on web by
+   * the threshold admin page and the deviation status badge.
+   *
+   * `scope_id` is omitted for `global` scope. Returns `null` when
+   * the scope has no saved thresholds and no fallback could be
+   * resolved.
+   */
+  getScopeThresholds: (
+    scopeType: ThresholdScopeType,
+    scopeId?: number | string | null,
+  ) => {
+    const q = new URLSearchParams({ scope_type: scopeType });
+    if (scopeId != null && scopeType !== 'global') {
+      q.set('scope_id', String(scopeId));
+    }
+    return apiClient.get<ScopeThresholds | null>(
+      `/indeklima/thresholds?${q.toString()}`,
+    );
+  },
 
   /**
    * Saved GPS positions for sensors placed on the map.
@@ -208,18 +245,46 @@ export interface WaterMapDataItem
 }
 
 /**
+ * Photo attachment for an alarm acknowledgment. The server expects
+ * a base64 data URL — `data:image/jpeg;base64,...` (or `image/png`).
+ *
+ * Server caps (waterdetection.js):
+ *   - Max 3 attachments per alarm
+ *   - Max 2 MB per attachment (after base64 decode)
+ *   - Allowed mime types: image/jpeg, image/png
+ *
+ * Client-side compression in `src/lib/photoAttachments.ts`
+ * keeps real-world payloads at ~200-600 KB so the cap is purely a
+ * defensive backstop.
+ */
+export type WaterAlarmAttachment = {
+  /** Original filename (best-effort), used for Content-Disposition on download. */
+  filename?: string;
+  /** `data:image/jpeg;base64,...` or `data:image/png;base64,...`. */
+  dataUrl: string;
+  width?: number;
+  height?: number;
+};
+
+/**
  * Body shape for both `/alarms/{id}/acknowledge` and
  * `/alarms/acknowledge-all`. The route handlers accept the same
  * pair of fields, so we share one type. The OpenAPI schema for the
  * single-alarm endpoint is slightly stale (missing
- * `sendCancellation`), so we redeclare the contract here to match
- * the actual server behaviour.
+ * `sendCancellation` and `attachments`), so we redeclare the
+ * contract here to match the actual server behaviour.
+ *
+ * `attachments` is only honoured by the single-alarm endpoint —
+ * `/alarms/acknowledge-all` ignores it on the server and the UI
+ * does not surface an upload control in bulk mode either.
  */
 export type WaterAlarmAckBody = {
   /** Required note describing the resolution. ≥ 1 char (server enforces non-empty). */
   note: string;
   /** When true, sends an "all clear" notification to recipients. */
   sendCancellation?: boolean;
+  /** Optional photo evidence — capped at 3 by the server. */
+  attachments?: WaterAlarmAttachment[];
 };
 
 export const waterApi = {

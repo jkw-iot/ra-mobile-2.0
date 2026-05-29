@@ -192,3 +192,37 @@ export const DEFAULT_REGION: Region = {
   latitudeDelta: DEFAULT_BOUNDS.latMax - DEFAULT_BOUNDS.latMin + 0.01,
   longitudeDelta: DEFAULT_BOUNDS.lngMax - DEFAULT_BOUNDS.lngMin + 0.01,
 };
+
+/**
+ * Derive a single coordinate for a sensor — preferring its saved
+ * GPS position, falling back to the centre of its group's bounds.
+ *
+ * Unlike `placeSensors`, this helper does NOT synthesise a random
+ * point inside the bounding box and does NOT fall back to the
+ * default Copenhagen region. Both behaviours are appropriate for
+ * the map view (where we always want SOMETHING to plot), but they
+ * are misleading for the outdoor-weather card on the sensor
+ * detail page — randomising the lookup point would make the
+ * outdoor reading drift between renders, and the Copenhagen
+ * fallback would lie about where the sensor actually lives.
+ *
+ * Returns `null` when neither a saved position nor sensible group
+ * bounds are available, so the caller can hide the feature
+ * entirely instead of showing weather for a placeholder location.
+ */
+export function sensorAnchorPosition(
+  sensor: { id: number | string; groupTitle: string } | null | undefined,
+  groups: readonly SensorGroup[] | undefined,
+  positions: SensorPositions | undefined,
+): LatLng | null {
+  if (!sensor) return null;
+  const saved = findSavedPosition(positions, sensor.id);
+  if (saved) return saved;
+  if (!groups) return null;
+  const bounds = buildBoundsByGroupTitle(groups).get(sensor.groupTitle);
+  if (!bounds) return null;
+  return {
+    lat: (bounds.latMin + bounds.latMax) / 2,
+    lng: (bounds.lngMin + bounds.lngMax) / 2,
+  };
+}

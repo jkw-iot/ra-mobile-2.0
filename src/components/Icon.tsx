@@ -103,6 +103,18 @@ const ICON_MAP: Record<string, MciName> = {
   'cloud': 'cloud-outline',
   'cloud-fog': 'weather-fog',
   'cloud-drizzle': 'weather-rainy',
+  // Heavier-rain glyph used by the outdoor weather card. Keeping
+  // 'cloud-drizzle' separate so light vs. heavy rain stay
+  // visually distinguishable.
+  'cloud-rain': 'weather-pouring',
+  'cloud-rain-heavy': 'weather-pouring',
+  'cloud-snow': 'weather-snowy-heavy',
+  'snow': 'snowflake',
+  'cloud-lightning': 'weather-lightning',
+  'cloud-lightning-rain': 'weather-lightning-rainy',
+  // Sun-with-cloud composite — Open-Meteo's "mainly clear /
+  // partly cloudy" buckets map here.
+  'cloud-sun': 'weather-partly-cloudy',
   'wind': 'weather-windy',
   // CO₂ — the literal "CO₂" molecule glyph. Used for the param
   // selector on sensor-detail where there's no room for text.
@@ -170,6 +182,7 @@ const ICON_MAP: Record<string, MciName> = {
   // Misc
   'star': 'star-outline',
   'star-fill': 'star',
+  'stars': 'star-outline',
   'heart': 'heart-outline',
   'heart-fill': 'heart',
   'flag': 'flag-outline',
@@ -179,6 +192,57 @@ const ICON_MAP: Record<string, MciName> = {
   'chat': 'chat-outline',
   'qr-code': 'qrcode',
   'camera': 'camera-outline',
+
+  // ── Scenario icons (used by ScenarioBadge / ScenarioDetailSheet)
+  // These mirror the Bootstrap-Icons names assigned in the web's
+  // thresholdService.SCENARIOS metadata; each maps to the closest
+  // MaterialCommunityIcons glyph.
+  'person-workspace': 'desk',
+  'headset': 'headset',
+  'hdd-rack': 'server',
+  'mortarboard': 'school-outline',
+  'emoji-smile': 'emoticon-happy-outline',
+  'megaphone': 'bullhorn-outline',
+  'dribbble': 'basketball',
+  'hospital': 'hospital-building',
+  'eyedropper': 'eyedropper',
+  'house-heart': 'home-heart',
+  'clipboard2-pulse': 'clipboard-pulse-outline',
+  'building-up': 'office-building-marker-outline',
+  'buildings': 'city',
+  'easel': 'palette-outline',
+  'archive': 'archive-outline',
+  'book': 'book-outline',
+  'bank': 'bank-outline',
+  'bank2': 'bank',
+  'box-seam': 'package-variant-closed',
+  'box2': 'package-variant',
+  'shop': 'storefront-outline',
+  'cup-hot': 'coffee-outline',
+  'cup-straw': 'cup',
+  'bicycle': 'bike',
+  'snow3': 'snowflake-variant',
+  'snow2': 'snowflake',
+  'gear-wide-connected': 'cogs',
+  'shield-fill-check': 'shield-check',
+  'tools': 'wrench-outline',
+  'grid-3x3': 'grid',
+  'cpu': 'chip',
+  'thermometer-low': 'thermometer-low',
+  'truck': 'truck-outline',
+  'car-front': 'car',
+  'airplane': 'airplane',
+  'capsule': 'pill',
+  'flower1': 'flower-outline',
+  'life-preserver': 'lifebuoy',
+  'laptop': 'laptop',
+  'prescription2': 'prescription',
+  'house-door': 'door',
+  'bricks': 'wall',
+  'house-up': 'home-roof',
+  'houses': 'home-group',
+  'film': 'film',
+  'basket2': 'basket-outline',
 };
 
 export interface IconProps {

@@ -15,8 +15,12 @@
 // KPI tile language. The dark navy header carries the title; the
 // body is white-on-light-grey for legibility of the form.
 // ══════════════════════════════════════════════════════════════
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActionSheetIOS,
+  ActivityIndicator,
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -37,6 +41,13 @@ import { ApiError } from '@/services/api/client';
 import { waterApi } from '@/services/api';
 import { useAuth } from '@/services/auth/AuthProvider';
 import { useTenantStore } from '@/stores/tenantStore';
+import {
+  MAX_ATTACHMENTS,
+  PhotoPickError,
+  pickFromLibrary,
+  takePhoto,
+  type CompressedPhoto,
+} from '@/lib/photoAttachments';
 
 const ARRIVAL_STATUSES = [
   'large_leak',
@@ -90,6 +101,9 @@ export function AcknowledgeSheet({
   const [sendCancellation, setSendCancellation] = useState(true);
   const [noteInvalid, setNoteInvalid] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<CompressedPhoto[]>([]);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
   const noteRef = useRef<TextInput>(null);
 
@@ -102,8 +116,18 @@ export function AcknowledgeSheet({
       setSendCancellation(true);
       setNoteInvalid(false);
       setSubmitError(null);
+      setAttachments([]);
+      setAttachmentBusy(false);
+      setAttachmentError(null);
     }
   }, [open, target]);
+
+  // Photo attachments are only meaningful for single-alarm acks —
+  // bulk mode submits one note for many alarms and the server
+  // ignores `attachments` on `/alarms/acknowledge-all`. Hide the
+  // section entirely in bulk mode so users aren't tempted to upload
+  // photos that will be silently dropped.
+  const canAttachPhotos = target?.mode === 'single';
 
   const ackUserName = useMemo(() => {
     if (user?.name) return user.name;
@@ -127,9 +151,21 @@ export function AcknowledgeSheet({
           sendCancellation,
         });
       }
+
+      const payloadAttachments =
+        attachments.length > 0
+          ? attachments.map((a) => ({
+              filename: a.filename,
+              dataUrl: a.dataUrl,
+              width: a.width,
+              height: a.height,
+            }))
+          : undefined;
+
       return waterApi.acknowledgeAlarm(target.alarmId, {
         note: fullNote,
         sendCancellation,
+        ...(payloadAttachments ? { attachments: payloadAttachments } : {}),
       });
     },
     onSuccess: () => {
@@ -154,6 +190,104 @@ export function AcknowledgeSheet({
       setSubmitError(msg);
     },
   });
+
+  const slotsLeft = MAX_ATTACHMENTS - attachments.length;
+
+  const handlePickError = useCallback(
+    (err: unknown) => {
+      haptic.error();
+      if (err instanceof PhotoPickError) {
+        if (err.code === 'permission') {
+          setAttachmentError(t('water.alarms.attachments_permission_denied'));
+          return;
+        }
+        if (err.code === 'compression') {
+          setAttachmentError(t('water.alarms.attachments_compression_failed'));
+          return;
+        }
+      }
+      setAttachmentError(t('water.alarms.attachments_pick_failed'));
+    },
+    [t],
+  );
+
+  const addFromLibrary = useCallback(async () => {
+    if (slotsLeft <= 0 || attachmentBusy) return;
+    setAttachmentError(null);
+    setAttachmentBusy(true);
+    try {
+      const picked = await pickFromLibrary(slotsLeft);
+      if (picked.length > 0) {
+        haptic.success();
+        setAttachments((prev) => [...prev, ...picked].slice(0, MAX_ATTACHMENTS));
+      }
+    } catch (err) {
+      handlePickError(err);
+    } finally {
+      setAttachmentBusy(false);
+    }
+  }, [slotsLeft, attachmentBusy, handlePickError]);
+
+  const addFromCamera = useCallback(async () => {
+    if (slotsLeft <= 0 || attachmentBusy) return;
+    setAttachmentError(null);
+    setAttachmentBusy(true);
+    try {
+      const photo = await takePhoto();
+      if (photo) {
+        haptic.success();
+        setAttachments((prev) => [...prev, photo].slice(0, MAX_ATTACHMENTS));
+      }
+    } catch (err) {
+      handlePickError(err);
+    } finally {
+      setAttachmentBusy(false);
+    }
+  }, [slotsLeft, attachmentBusy, handlePickError]);
+
+  const promptAddPhoto = useCallback(() => {
+    if (slotsLeft <= 0 || attachmentBusy) return;
+    haptic.select();
+
+    const cameraLabel = t('water.alarms.attachments_take_photo');
+    const libraryLabel = t('water.alarms.attachments_choose_library');
+    const cancelLabel = t('common.cancel');
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [cameraLabel, libraryLabel, cancelLabel],
+          cancelButtonIndex: 2,
+          title: t('water.alarms.attachments_label'),
+        },
+        (idx) => {
+          if (idx === 0) addFromCamera();
+          else if (idx === 1) addFromLibrary();
+        },
+      );
+      return;
+    }
+
+    // Android: simple two-option dialog (no native bottom sheet
+    // without an extra dependency, and Alert is more than enough
+    // for a 2-option fork).
+    Alert.alert(
+      t('water.alarms.attachments_label'),
+      undefined,
+      [
+        { text: cameraLabel, onPress: addFromCamera },
+        { text: libraryLabel, onPress: addFromLibrary },
+        { text: cancelLabel, style: 'cancel' },
+      ],
+      { cancelable: true },
+    );
+  }, [slotsLeft, attachmentBusy, t, addFromCamera, addFromLibrary]);
+
+  const removeAttachment = useCallback((id: string) => {
+    haptic.select();
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+    setAttachmentError(null);
+  }, []);
 
   const submit = () => {
     if (!canSubmit) {
@@ -200,10 +334,22 @@ export function AcknowledgeSheet({
           onPress={onClose}
         >
           {/* Stop the inner press from bubbling up so taps on the
-              sheet don't dismiss it. */}
+              sheet don't dismiss it.
+
+              Layout note: the sheet is a column with a fixed-height
+              header, a flex:1 ScrollView, and a fixed-height footer.
+              `maxHeight: 92%` caps the sheet, and the flex:1 on the
+              ScrollView (further down) lets it shrink within that
+              cap and scroll internally — without flex distribution
+              the ScrollView would render at its natural content
+              height, push the footer past the cap and `overflow:
+              hidden` would clip the Cancel/Submit row when the
+              user adds tall content like photo thumbnails. */}
           <Pressable
             onPress={(e) => e.stopPropagation()}
             style={{
+              flexShrink: 1,
+              flexDirection: 'column',
               backgroundColor: colors.bgPrimary,
               borderTopLeftRadius: radius.xl,
               borderTopRightRadius: radius.xl,
@@ -323,11 +469,14 @@ export function AcknowledgeSheet({
             {/* ── Form body ─────────────────────────────── */}
             <ScrollView
               keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+              style={{ flex: 1 }}
               contentContainerStyle={{
                 paddingHorizontal: spacing.lg,
                 paddingTop: spacing.lg,
                 paddingBottom: spacing.lg,
                 gap: spacing.lg,
+                flexGrow: 1,
               }}
             >
               {/* Acknowledger — read-only chip */}
@@ -450,6 +599,18 @@ export function AcknowledgeSheet({
                   })}
                 </View>
               </View>
+
+              {/* Photo attachments — optional, max 3, single mode only */}
+              {canAttachPhotos ? (
+                <AttachmentSection
+                  attachments={attachments}
+                  busy={attachmentBusy}
+                  error={attachmentError}
+                  onAdd={promptAddPhoto}
+                  onRemove={removeAttachment}
+                  disabled={ackMutation.isPending}
+                />
+              ) : null}
 
               {/* Note */}
               <View>
@@ -612,9 +773,14 @@ export function AcknowledgeSheet({
               ) : null}
             </ScrollView>
 
-            {/* ── Footer ────────────────────────────────── */}
+            {/* ── Footer ──────────────────────────────────
+                `flexShrink: 0` is load-bearing: when the ScrollView
+                is starved for space (lots of attachments + open
+                keyboard), RN would otherwise compress the footer
+                and the Submit row could end up <44 px tall. */}
             <View
               style={{
+                flexShrink: 0,
                 flexDirection: 'row',
                 gap: spacing.sm,
                 paddingHorizontal: spacing.lg,
@@ -640,7 +806,7 @@ export function AcknowledgeSheet({
                   variant="primary"
                   icon={isBulk ? 'check2-all' : 'check2-square'}
                   loading={ackMutation.isPending}
-                  disabled={!canSubmit || ackMutation.isPending}
+                  disabled={!canSubmit || ackMutation.isPending || attachmentBusy}
                   fullWidth
                 />
               </View>
@@ -649,6 +815,226 @@ export function AcknowledgeSheet({
         </Pressable>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+// ── AttachmentSection ────────────────────────────────────────
+// Optional photo strip rendered between "arrival status" and the
+// note. Mirrors the web implementation in
+// `pages/water/Alarms.jsx` — same layout (3-column grid), same
+// 3-photo cap, same error placement. The web uses a hidden
+// `<input type=file>`; we route through ActionSheet → ImagePicker
+// (camera or library) instead since the native picker is the
+// expected mobile pattern.
+//
+// Visual styling lives on inner `<View>` to match the project's
+// "Pressable rendering quirk" workaround documented in
+// `.cursorrules`.
+
+interface AttachmentSectionProps {
+  attachments: CompressedPhoto[];
+  busy: boolean;
+  error: string | null;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  disabled: boolean;
+}
+
+function AttachmentSection({
+  attachments,
+  busy,
+  error,
+  onAdd,
+  onRemove,
+  disabled,
+}: AttachmentSectionProps) {
+  const { t } = useTranslation();
+  const slotsLeft = MAX_ATTACHMENTS - attachments.length;
+  const canAdd = slotsLeft > 0 && !busy && !disabled;
+
+  return (
+    <View
+      style={{
+        gap: spacing.sm,
+        padding: spacing.md,
+        backgroundColor: colors.gray[100],
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: colors.gray[200],
+      }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: spacing.sm,
+        }}
+      >
+        <Text
+          style={[
+            type.caption,
+            { color: colors.gray[700], fontWeight: '600' },
+          ]}
+        >
+          {t('water.alarms.attachments_label')}
+          <Text style={{ color: colors.gray[400], fontWeight: '500' }}>
+            {' '}
+            ({t('common.optional')})
+          </Text>
+        </Text>
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: '600',
+            fontVariant: ['tabular-nums'],
+            color: colors.gray[400],
+          }}
+        >
+          {attachments.length}/{MAX_ATTACHMENTS}
+        </Text>
+      </View>
+      <Text style={[type.caption, { color: colors.gray[500] }]}>
+        {t('water.alarms.attachments_optional_hint')}
+      </Text>
+
+      {attachments.length > 0 ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            marginHorizontal: -3,
+          }}
+        >
+          {attachments.map((a) => (
+            <View
+              key={a.id}
+              style={{
+                width: '33.333%',
+                aspectRatio: 1,
+                padding: 3,
+              }}
+            >
+              <View
+                style={{
+                  flex: 1,
+                  borderRadius: radius.md,
+                  overflow: 'hidden',
+                  backgroundColor: colors.gray[200],
+                  borderWidth: 1,
+                  borderColor: colors.gray[200],
+                  position: 'relative',
+                }}
+              >
+                <Image
+                  source={{ uri: a.previewUri }}
+                  style={{ flex: 1 }}
+                  resizeMode="cover"
+                />
+                <Pressable
+                  onPress={() => onRemove(a.id)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('water.alarms.attachments_remove')}
+                  disabled={disabled}
+                  style={({ pressed }) => ({
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+                  })}
+                >
+                  <View
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: radius.full,
+                      backgroundColor: 'rgba(0,0,0,0.55)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Icon name="x" color={colors.white} size={14} />
+                  </View>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {slotsLeft > 0 ? (
+        <Pressable
+          onPress={canAdd ? onAdd : undefined}
+          accessibilityRole="button"
+          accessibilityLabel={t('water.alarms.attachments_add')}
+          accessibilityState={{ disabled: !canAdd }}
+          style={({ pressed }) => ({
+            opacity: !canAdd ? 0.5 : pressed ? 0.85 : 1,
+          })}
+        >
+          <View
+            style={{
+              minHeight: 44,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: spacing.sm,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+              borderWidth: 1,
+              borderStyle: 'dashed',
+              borderColor: colors.gray[300],
+              borderRadius: radius.md,
+              backgroundColor: colors.white,
+            }}
+          >
+            {busy ? (
+              <ActivityIndicator size="small" color={colors.brandAccent} />
+            ) : (
+              <Icon name="camera" color={colors.brandAccent} size={16} />
+            )}
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: '600',
+                color: colors.brandAccent,
+              }}
+            >
+              {busy
+                ? t('water.alarms.attachments_compressing')
+                : t('water.alarms.attachments_add')}
+            </Text>
+          </View>
+        </Pressable>
+      ) : null}
+
+      {error ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <Icon
+            name="exclamation-circle-fill"
+            color={colors.statusBad}
+            size={12}
+          />
+          <Text
+            style={{
+              flex: 1,
+              fontSize: 11,
+              fontWeight: '600',
+              color: colors.statusBad,
+            }}
+          >
+            {error}
+          </Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
