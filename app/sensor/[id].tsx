@@ -84,10 +84,10 @@ import {
 import { haptic } from '@/lib/haptics';
 import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 import { useDetailPrefsStore, type DetailPeriod } from '@/stores/detailPrefsStore';
+import { useTenantTime } from '@/hooks/useTenantTime';
+import type { TenantTime } from '@/lib/datetime';
 
 type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'pir';
-
-const MONTHS_DA = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 
 function isPresent(v: number | string | undefined): v is number | string {
   if (v == null || v === '-' || v === '') return false;
@@ -106,23 +106,26 @@ function fmtNum(v: number | string | undefined, digits = 1): string {
   return n.toFixed(digits);
 }
 
-function formatFullDateTime(raw: string | undefined): string {
+/**
+ * Full "last measured" stamp for the hero, rendered in the tenant's
+ * timezone via the shared time model (fixes the device-tz shift that
+ * `new Date(raw)` introduced).
+ *
+ * Short pre-formatted tokens from the API ("17:33" today, "21. nov"
+ * older) can't be reparsed reliably; a bare time-of-day is shown as
+ * "<today>, kl. HH:MM", anything else verbatim.
+ */
+function formatMeasurementStamp(raw: string | undefined, tt: TenantTime): string {
   if (!raw) return '—';
-  // Short pre-formatted strings from the API (e.g. "17:33" today,
-  // "21. nov" older). If it's a short time-of-day string, assume
-  // today and render as "I dag kl. HH:MM" etc.
   if (raw.length <= 8) {
     if (/^\d{1,2}:\d{2}$/.test(raw)) {
-      const now = new Date();
-      return `${now.getDate()}. ${MONTHS_DA[now.getMonth()]} ${now.getFullYear()}, kl. ${raw}`;
+      return `${tt.formatMonthDayYear(new Date())}, kl. ${raw}`;
     }
     return raw;
   }
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return raw;
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${d.getDate()}. ${MONTHS_DA[d.getMonth()]} ${d.getFullYear()}, kl. ${hh}:${mm}`;
+  const d = tt.parseLegacy(raw);
+  if (!d) return raw;
+  return tt.formatDateTime(d);
 }
 
 
@@ -215,6 +218,7 @@ function MetaIconButton({
 // ── Screen ─────────────────────────────────────────────────
 export default function SensorDetailScreen() {
   const { t } = useTranslation();
+  const tt = useTenantTime();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id: idParam, param: paramParam } = useLocalSearchParams<{
@@ -287,8 +291,8 @@ export default function SensorDetailScreen() {
   // chart uses these to span the whole window even when readings
   // only fall inside part of it (e.g. sensor offline overnight).
   const presenceBounds = useMemo(
-    () => rangeToTimestamps(dateRange.from, dateRange.to),
-    [dateRange.from, dateRange.to],
+    () => rangeToTimestamps(dateRange.from, dateRange.to, tt.tz),
+    [dateRange.from, dateRange.to, tt.tz],
   );
 
   const raw = useSensorHistoryRaw(useRaw ? id : null, dateRange.from);
@@ -300,8 +304,8 @@ export default function SensorDetailScreen() {
 
   const activeParam: Param = param ?? 'temp';
   const points = useMemo(
-    () => historyToPoints(historyData, activeParam),
-    [historyData, activeParam],
+    () => historyToPoints(historyData, activeParam, tt.tz),
+    [historyData, activeParam, tt.tz],
   );
   const normalizedThresholds = useMemo(
     () => normalizeThresholds(thresholdsQuery.data),
@@ -418,7 +422,7 @@ export default function SensorDetailScreen() {
   const unitFor = (p: Param) => unitForParam(sensor, p);
 
   const rangeLabel = formatRangeLabel(period, anchor, today);
-  const fullMeasurementTime = formatFullDateTime(sensor.time);
+  const fullMeasurementTime = formatMeasurementStamp(sensor.time, tt);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
@@ -727,6 +731,8 @@ export default function SensorDetailScreen() {
                     toTs={presenceBounds.toTs}
                     occupiedLabel={t('indeklima.sensors.presence.occupied')}
                     vacantLabel={t('indeklima.sensors.presence.vacant')}
+                    formatClock={(ms) => tt.formatTime(new Date(ms))}
+                    formatDate={(ms) => tt.formatMonthDay(new Date(ms))}
                   />
                 )
               ) : points.length < 2 ? (
@@ -757,6 +763,8 @@ export default function SensorDetailScreen() {
                   unit={unitFor(activeParam)}
                   stroke={paramColor(activeParam)}
                   zones={chartZones}
+                  formatTimestamp={(ms) => tt.formatMonthDayTime(new Date(ms))}
+                  formatAxisLabel={(ms) => tt.formatMonthDayTime(new Date(ms))}
                 />
               )}
             </View>

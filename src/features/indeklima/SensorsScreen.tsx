@@ -52,6 +52,8 @@ import {
   type NormalizedThresholds,
 } from './thresholds';
 import { useLocationFilter } from '@/hooks/useLocationFilter';
+import { useTenantTime } from '@/hooks/useTenantTime';
+import type { TenantTime } from '@/lib/datetime';
 import { useTenantStore } from '@/stores/tenantStore';
 import { useSensorListPrefsStore } from '@/stores/sensorListPrefsStore';
 import { indeklimaApi } from '@/services/api';
@@ -107,31 +109,28 @@ function toFiniteNumber(value: unknown): number | null {
  * Time formatting per spec:
  * - Less than 24 hours: HH:mm
  * - More than 24 hours: date (DD. mon)
+ *
+ * All parsing/formatting goes through the tenant-time model so the
+ * displayed wall clock is the tenant's local time regardless of the
+ * device timezone (fixes the "1 time foran" bug where Legacy's
+ * misleading `Z`/offset marker was honoured by `new Date(raw)`).
+ *
+ * Some payloads still arrive as a short pre-formatted token (e.g.
+ * "17:33" or "21. nov"); those can't be reparsed reliably, so we
+ * render them verbatim.
  */
-function formatSensorTime(raw: string | undefined): { text: string; isSilent: boolean } {
+function sensorTimeInfo(
+  raw: string | undefined,
+  tt: TenantTime,
+): { text: string; isSilent: boolean } {
   if (!raw) return { text: '—', isSilent: true };
   if (raw.length <= 8) {
     const isTimeFormat = /^\d{1,2}:\d{2}$/.test(raw);
     return { text: raw, isSilent: !isTimeFormat };
   }
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return { text: raw, isSilent: false };
-
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const hoursDiff = diffMs / (1000 * 60 * 60);
-
-  if (hoursDiff < 24) {
-    return {
-      text: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
-      isSilent: false,
-    };
-  }
-  const MONTHS_DA = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
-  return {
-    text: `${d.getDate()}. ${MONTHS_DA[d.getMonth()]}`,
-    isSilent: hoursDiff > 48,
-  };
+  const d = tt.parseLegacy(raw);
+  if (!d) return { text: raw, isSilent: false };
+  return tt.formatSensorListTime(d);
 }
 
 /**
@@ -285,9 +284,10 @@ function SensorCard({
   trend,
 }: SensorCardProps) {
   const { t } = useTranslation();
+  const tt = useTenantTime();
   const tone = toneFromStatusColor(sensor.statusColor);
   const stripe = toneColor(tone);
-  const timeInfo = formatSensorTime(sensor.time);
+  const timeInfo = sensorTimeInfo(sensor.time, tt);
   const isSilent = timeInfo.isSilent || sensor.statusColor === 'grey';
 
   const supports = (p: string) => sensorSupports(sensor.sensorType, p, typeMap);
@@ -643,14 +643,14 @@ export default function IndeklimaSensorsScreen() {
     return opt ? opt.subtreeIds : null;
   }, [effectiveLocation, locationOptions]);
 
-  const visible = useMemo(() => {
+  // Sensors in the current location, BEFORE filtering by the
+  // active parameter. Drives the param picker's "available" set
+  // so the user can always switch back to a metric another sensor
+  // in the location still reports. The rendered list itself is
+  // narrower (see `visible` below).
+  const locationFiltered = useMemo(() => {
     if (!effectiveLocation) return [];
-    return allowed.filter((s) => {
-      if (!sensorMatchesLocation(s, effectiveSubtree)) {
-        return false;
-      }
-      return true;
-    });
+    return allowed.filter((s) => sensorMatchesLocation(s, effectiveSubtree));
   }, [allowed, effectiveLocation, effectiveSubtree]);
 
   // Which parameters does at least one sensor in the current
@@ -663,7 +663,7 @@ export default function IndeklimaSensorsScreen() {
     const all: ParamKey[] = ['temp', 'hum', 'co2', 'voc', 'pir'];
     if (typeMap.size === 0) return new Set(all);
     const found = new Set<ParamKey>();
-    for (const s of visible) {
+    for (const s of locationFiltered) {
       for (const p of all) {
         if (found.has(p)) continue;
         if (sensorSupports(s.sensorType, p, typeMap)) found.add(p);
@@ -671,7 +671,24 @@ export default function IndeklimaSensorsScreen() {
       if (found.size === all.length) break;
     }
     return found;
-  }, [visible, typeMap]);
+  }, [locationFiltered, typeMap]);
+
+  // Final list rendered in the FlatList: location-filtered AND
+  // restricted to sensors that actually measure the active
+  // parameter. A sensor that reports temp+hum only should never
+  // show up under "CO₂" — even with a "—" placeholder on the
+  // right, it just adds noise and makes the user wonder why
+  // their CO₂ count is so low.
+  //
+  // While the sensor-types map is still loading (`typeMap.size === 0`)
+  // `sensorSupports` falls back to "true" for every sensor, so
+  // we briefly show everything rather than flashing an empty
+  // list.
+  const visible = useMemo(() => {
+    return locationFiltered.filter((s) =>
+      sensorSupports(s.sensorType, primaryParam, typeMap),
+    );
+  }, [locationFiltered, primaryParam, typeMap]);
 
   // Keep `primaryParam` valid as the user changes location —
   // jump to the first available one if the currently selected

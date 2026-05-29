@@ -23,6 +23,14 @@ export interface Tenant {
   id: number;
   name: string;
   slug?: string;
+  /**
+   * IANA timezone (e.g. "Europe/Copenhagen") for rendering all
+   * tenant-facing times. The backend ships this on every tenant in
+   * the login/me payload, but the (stale) OpenAPI schema doesn't
+   * document it — so we read it defensively and let consumers fall
+   * back to DEFAULT_TENANT_TIMEZONE when absent.
+   */
+  timezone?: string;
 }
 
 export interface Module {
@@ -118,10 +126,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const id = Number(row.tenant_id ?? row.id);
       if (!Number.isFinite(id)) continue;
       if (tenantMap.has(id)) continue;
+      const tz = row.timezone ?? row.tenant_timezone;
       tenantMap.set(id, {
         id,
         name: String(row.tenant_name ?? row.name ?? ''),
         slug: (row.tenant_slug ?? row.slug) as string | undefined,
+        timezone: typeof tz === 'string' && tz.trim() !== '' ? tz : undefined,
       });
     }
     setProfile({

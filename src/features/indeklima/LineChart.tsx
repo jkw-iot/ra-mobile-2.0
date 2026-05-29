@@ -33,6 +33,13 @@ export interface LineChartProps {
   unit?: string;
   /** Coloured background bands (green / yellow / red). */
   zones?: readonly ChartZone[];
+  /**
+   * Tenant-tz-aware formatters. Provide these (from `useTenantTime`)
+   * so the tooltip and axis labels render the tenant's wall clock on
+   * any device. Both fall back to a device-local format when omitted.
+   */
+  formatTimestamp?: (ms: number) => string;
+  formatAxisLabel?: (ms: number) => string;
 }
 
 // ── Nice-number helper ───────────────────────────────────
@@ -71,10 +78,18 @@ function fmtTick(v: number): string {
   return v.toFixed(1);
 }
 
-function fmtDateTime(ms: number): string {
+const MONTHS_DA = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+
+// Device-local fallbacks used only when the caller doesn't pass the
+// tenant-tz formatters from `useTenantTime`.
+function fallbackDateTime(ms: number): string {
   const d = new Date(ms);
-  const MONTHS = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
-  return `${d.getDate()}. ${MONTHS[d.getMonth()]} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${d.getDate()}. ${MONTHS_DA[d.getMonth()]} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function fallbackAxisLabel(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getDate()}. ${MONTHS_DA[d.getMonth()]} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 // Zone min/max can be "infinite" sentinels (±1e6) used to paint
@@ -93,6 +108,8 @@ export function LineChart({
   stroke = colors.dusty[0],
   unit,
   zones,
+  formatTimestamp = fallbackDateTime,
+  formatAxisLabel = fallbackAxisLabel,
 }: LineChartProps) {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
@@ -231,7 +248,7 @@ export function LineChart({
               {activePoint.v.toFixed(1)}{unit ? ` ${unit}` : ''}
             </Text>
             <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, textAlign: 'center' }}>
-              {fmtDateTime(activePoint.t)}
+              {formatTimestamp(activePoint.t)}
             </Text>
           </View>
         </View>
@@ -317,20 +334,10 @@ export function LineChart({
         }}
       >
         <Text style={[type.caption, { fontSize: 10 }]}>
-          {new Date(minT).toLocaleString(undefined, {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {formatAxisLabel(minT)}
         </Text>
         <Text style={[type.caption, { fontSize: 10 }]}>
-          {new Date(maxT).toLocaleString(undefined, {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {formatAxisLabel(maxT)}
         </Text>
       </View>
     </View>

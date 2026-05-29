@@ -19,6 +19,7 @@ import type { LinePoint } from '@/features/indeklima/LineChart';
 import type { Param } from '@/features/indeklima/thresholds';
 import type { HistoryResponse, Sensor } from '@/services/api';
 import type { DetailPeriod } from '@/stores/detailPrefsStore';
+import { parseLegacy, wallTimeToInstant, DEFAULT_TENANT_TIMEZONE } from '@/lib/datetime';
 
 /** Date → `YYYY-MM-DD` (the format every indeklima endpoint expects). */
 export function ymd(d: Date): string {
@@ -48,15 +49,19 @@ export function rangeForAnchor(period: DetailPeriod, anchor: Date) {
  * boundaries `[from 00:00:00, to 23:59:59.999]` so charts that
  * render absolute time bounds (e.g. the presence chart) can span
  * the whole period regardless of where data points fall inside it.
+ *
+ * The bounds are anchored in the tenant timezone so they line up with
+ * the chart points (which are also tenant-tz instants) on any device.
  */
 export function rangeToTimestamps(
   from: string,
   to: string,
+  tz: string = DEFAULT_TENANT_TIMEZONE,
 ): { fromTs: number; toTs: number } {
   const [fy, fm, fd] = from.split('-').map(Number);
   const [ty, tm, td] = to.split('-').map(Number);
-  const fromTs = new Date(fy ?? 1970, (fm ?? 1) - 1, fd ?? 1, 0, 0, 0, 0).getTime();
-  const toTs = new Date(ty ?? 1970, (tm ?? 1) - 1, td ?? 1, 23, 59, 59, 999).getTime();
+  const fromTs = wallTimeToInstant(fy ?? 1970, fm ?? 1, fd ?? 1, 0, 0, 0, tz);
+  const toTs = wallTimeToInstant(ty ?? 1970, tm ?? 1, td ?? 1, 23, 59, 59, tz) + 999;
   return { fromTs, toTs };
 }
 
@@ -70,33 +75,28 @@ function hourlyKey(param: Param): string {
 }
 
 /**
- * Resolve a legacy raw reading to a JS epoch (ms).
+ * Resolve a legacy raw reading to a JS epoch (ms) in the tenant's
+ * timezone.
  *
  * Legacy history rows carry both a Unix `timestamp` (seconds) *and*
- * a `{ date, time }` pair. The two disagree by the local UTC offset:
- * the legacy backend builds `timestamp` by treating the local
- * "YYYY-MM-DD HH:MM" as if it were UTC, so `timestamp * 1000`
- * arrives at a Date whose UTC fields match the local clock — which,
- * once rendered with `getHours()` on the device, ends up shifted by
- * the offset (e.g. +2h in CEST). The web app calls this out
- * explicitly in `services/indeklimaLegacyService.parseReadingTimestamp`.
- *
- * So: prefer `date + time` (already in local time) and only fall
- * back to `timestamp * 1000` for older payloads that lack them.
+ * a `{ date, time }` pair. The `{ date, time }` pair is the tenant's
+ * wall clock, so we anchor it in `tz` via `parseLegacy` — this keeps
+ * the chart's x-axis aligned with the wall clock the user expects on
+ * any device. The raw `timestamp` is only a last-resort fallback for
+ * older payloads that lack the date/time fields.
  */
-function readingEpoch(r: {
-  date?: string;
-  time?: string;
-  timestamp?: number;
-}): number | null {
+function readingEpoch(
+  r: { date?: string; time?: string; timestamp?: number },
+  tz: string,
+): number | null {
   if (
     typeof r.date === 'string'
     && typeof r.time === 'string'
     && /^\d{4}-\d{2}-\d{2}$/.test(r.date)
   ) {
     const timeStr = r.time.length === 5 ? `${r.time}:00` : r.time;
-    const ms = new Date(`${r.date}T${timeStr}`).getTime();
-    if (Number.isFinite(ms)) return ms;
+    const d = parseLegacy(`${r.date}T${timeStr}`, tz);
+    if (d) return d.getTime();
   }
   if (typeof r.timestamp === 'number' && Number.isFinite(r.timestamp)) {
     return r.timestamp * 1000;
@@ -108,6 +108,7 @@ function readingEpoch(r: {
 export function historyToPoints(
   hist: HistoryResponse | undefined,
   param: Param,
+  tz: string = DEFAULT_TENANT_TIMEZONE,
 ): LinePoint[] {
   if (!hist) return [];
   if (!Array.isArray(hist) && 'resolution' in hist && hist.resolution === 'hourly') {
@@ -115,19 +116,20 @@ export function historyToPoints(
     return hist.readings.map((r) => {
       const raw = r[key as keyof typeof r];
       const v = raw == null ? null : typeof raw === 'number' ? raw : Number(raw);
-      // `hour_ts` is already a local-time string ("YYYY-MM-DD HH:00:00")
-      // built from each reading's `date + time` server-side, so parsing
-      // it as local time on the device renders the user's wall clock.
+      // `hour_ts` is a tenant wall-clock string ("YYYY-MM-DD HH:00:00")
+      // built from each reading's `date + time` server-side; anchor it
+      // in the tenant tz so the axis matches the user's wall clock.
+      const d = parseLegacy(r.hour_ts, tz);
       return {
-        t: new Date(r.hour_ts.replace(' ', 'T')).getTime(),
+        t: d ? d.getTime() : NaN,
         v: v == null || !Number.isFinite(v) ? null : v,
       };
-    });
+    }).filter((p) => Number.isFinite(p.t));
   }
   if (Array.isArray(hist)) {
     const out: LinePoint[] = [];
     for (const r of hist) {
-      const t = readingEpoch(r);
+      const t = readingEpoch(r, tz);
       if (t == null) continue;
       const raw = r[param];
       const v = raw == null ? null : Number(raw);

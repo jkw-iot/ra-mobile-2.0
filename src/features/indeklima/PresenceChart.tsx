@@ -57,6 +57,13 @@ export interface PresenceChartProps {
   occupiedLabel: string;
   /** Localised label for the bottom row (e.g. "Ledigt"). */
   vacantLabel: string;
+  /**
+   * Tenant-tz-aware formatters (from `useTenantTime`). Provide these
+   * so axis ticks + tooltip render the tenant's wall clock on any
+   * device; both fall back to a device-local format when omitted.
+   */
+  formatClock?: (ms: number) => string;
+  formatDate?: (ms: number) => string;
 }
 
 interface ClassifiedPoint {
@@ -78,20 +85,18 @@ const TICK_COUNT = 5;
 
 const MONTHS_DA = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 
-function fmtClock(ms: number): string {
+// Device-local fallbacks used only when the caller doesn't pass the
+// tenant-tz formatters from `useTenantTime`.
+function fallbackClock(ms: number): string {
   const d = new Date(ms);
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
   return `${hh}:${mm}`;
 }
 
-function fmtDate(ms: number): string {
+function fallbackDate(ms: number): string {
   const d = new Date(ms);
   return `${d.getDate()}. ${MONTHS_DA[d.getMonth()]}`;
-}
-
-function fmtDateTime(ms: number): string {
-  return `${fmtDate(ms)} · ${fmtClock(ms)}`;
 }
 
 /**
@@ -121,7 +126,10 @@ export function PresenceChart({
   toTs,
   occupiedLabel,
   vacantLabel,
+  formatClock = fallbackClock,
+  formatDate = fallbackDate,
 }: PresenceChartProps) {
+  const fmtDateTime = (ms: number): string => `${formatDate(ms)} · ${formatClock(ms)}`;
   const padLeft = 56;
   const padRight = 8;
   const padTop = 18;
@@ -388,7 +396,7 @@ export function PresenceChart({
                 fill={colors.gray[500]}
                 textAnchor={anchor}
               >
-                {useDateLabels ? fmtDate(t) : fmtClock(t)}
+                {useDateLabels ? formatDate(t) : formatClock(t)}
               </SvgText>
             );
           })}

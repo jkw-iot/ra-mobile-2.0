@@ -56,6 +56,7 @@ import {
 import type { DetailPeriod } from '@/stores/detailPrefsStore';
 import { haptic } from '@/lib/haptics';
 import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
+import { useTenantTime } from '@/hooks/useTenantTime';
 
 const VALID_PARAMS: readonly Param[] = ['temp', 'hum', 'co2', 'voc', 'pir'] as const;
 const VALID_PERIODS: readonly DetailPeriod[] = [
@@ -67,6 +68,7 @@ const VALID_PERIODS: readonly DetailPeriod[] = [
 
 export default function SensorGraphFullscreen() {
   const { t } = useTranslation();
+  const tt = useTenantTime();
   const router = useRouter();
   const raw = useLocalSearchParams<{
     id?: string;
@@ -122,8 +124,8 @@ export default function SensorGraphFullscreen() {
   const dateRange = useMemo(() => rangeForAnchor(period, anchor), [period, anchor]);
   const useRaw = dateRange.useRaw;
   const presenceBounds = useMemo(
-    () => rangeToTimestamps(dateRange.from, dateRange.to),
-    [dateRange.from, dateRange.to],
+    () => rangeToTimestamps(dateRange.from, dateRange.to, tt.tz),
+    [dateRange.from, dateRange.to, tt.tz],
   );
   const rawHistory = useSensorHistoryRaw(useRaw ? id : null, dateRange.from);
   const hourlyHistory = useSensorHistoryHourly(
@@ -137,8 +139,8 @@ export default function SensorGraphFullscreen() {
   const historyError = useRaw ? rawHistory.error : hourlyHistory.error;
 
   const points = useMemo(
-    () => historyToPoints(historyData, activeParam),
-    [historyData, activeParam],
+    () => historyToPoints(historyData, activeParam, tt.tz),
+    [historyData, activeParam, tt.tz],
   );
   const zones = useMemo(
     () =>
@@ -367,6 +369,8 @@ export default function SensorGraphFullscreen() {
                   toTs={presenceBounds.toTs}
                   occupiedLabel={t('indeklima.sensors.presence.occupied')}
                   vacantLabel={t('indeklima.sensors.presence.vacant')}
+                  formatClock={(ms) => tt.formatTime(new Date(ms))}
+                  formatDate={(ms) => tt.formatMonthDay(new Date(ms))}
                 />
               </View>
             )
@@ -405,6 +409,8 @@ export default function SensorGraphFullscreen() {
                 unit={unit}
                 stroke={stroke}
                 zones={zones}
+                formatTimestamp={(ms) => tt.formatMonthDayTime(new Date(ms))}
+                formatAxisLabel={(ms) => tt.formatMonthDayTime(new Date(ms))}
               />
             </View>
           )}
