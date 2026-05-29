@@ -20,6 +20,7 @@ import { AuthProvider, useAuth } from '@/services/auth/AuthProvider';
 import { LoadingIndicator } from '@/components';
 import { useTenantStore } from '@/stores/tenantStore';
 import { ensureTileCacheDir } from '@/lib/tileCache';
+import { useResumeToSensors } from '@/hooks/useResumeToSensors';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -29,6 +30,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const setActiveTenant = useTenantStore((s) => s.setActiveTenant);
   const segments = useSegments();
   const router = useRouter();
+
+  // After a long absence, return the user to the sensor list (which
+  // restores the last-viewed location per tenant). Only armed once
+  // we're authenticated with a valid active tenant, so it never
+  // fires over the login or tenant-picker screens.
+  const hasValidTenant =
+    activeTenantId !== null && tenants.some((t) => t.id === activeTenantId);
+  useResumeToSensors(!loading && isAuthenticated && hasValidTenant);
 
   useEffect(() => {
     if (loading) return;
