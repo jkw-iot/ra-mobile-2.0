@@ -253,6 +253,8 @@ export default function WaterMapScreen() {
           <UrlTile
             urlTemplate={`${env.apiBaseUrl}/api/tiles/{z}/{x}/{y}`}
             maximumZ={19}
+            maximumNativeZ={16}
+            tileSize={512}
             flipY={false}
             shouldReplaceMapContent
             tileCachePath={TILE_CACHE_PATH}

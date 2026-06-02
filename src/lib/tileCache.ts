@@ -14,8 +14,16 @@
 // so iOS may evict tiles under storage pressure — they're trivially
 // re-fetchable, so eviction is safe. The tiles cost the user no
 // "App size" in Settings, unlike `Paths.document`.
+//
+// Pre-seeding: `preseedTiles` warms both the Hono server-side
+// disk cache and the native HTTP cache (NSURLCache / OkHttp) by
+// firing background fetches for tiles inside a bounding box at
+// zoom levels 10-15. Runs after sensor groups load so the user's
+// usual map viewport is pre-populated before they open the map.
 // ══════════════════════════════════════════════════════════════
 import { Directory, Paths } from 'expo-file-system';
+
+import { env } from './env';
 
 const TILE_DIR_NAME = 'roomalyzer-tiles';
 const tileDir = new Directory(Paths.cache, TILE_DIR_NAME);
@@ -53,4 +61,91 @@ export function ensureTileCacheDir(): Promise<void> {
     })();
   }
   return initPromise;
+}
+
+// ── Tile pre-seeding ─────────────────────────────────────────
+
+export interface Bounds {
+  latMin: number;
+  latMax: number;
+  lngMin: number;
+  lngMax: number;
+}
+
+const MIN_ZOOM = 10;
+const MAX_ZOOM = 15;
+const MAX_CONCURRENT = 6;
+const MAX_TILES = 300;
+
+function lat2tile(lat: number, z: number): number {
+  return Math.floor(
+    ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * (1 << z),
+  );
+}
+
+function lng2tile(lng: number, z: number): number {
+  return Math.floor(((lng + 180) / 360) * (1 << z));
+}
+
+/** Enumerate all tile coordinates within `bounds` for zoom levels MIN–MAX. */
+function tileCoordsForBounds(bounds: Bounds): { z: number; x: number; y: number }[] {
+  const coords: { z: number; x: number; y: number }[] = [];
+  for (let z = MIN_ZOOM; z <= MAX_ZOOM; z++) {
+    const xMin = lng2tile(bounds.lngMin, z);
+    const xMax = lng2tile(bounds.lngMax, z);
+    const yMin = lat2tile(bounds.latMax, z);
+    const yMax = lat2tile(bounds.latMin, z);
+    for (let x = xMin; x <= xMax; x++) {
+      for (let y = yMin; y <= yMax; y++) {
+        coords.push({ z, x, y });
+      }
+    }
+    if (coords.length > MAX_TILES) break;
+  }
+  return coords.slice(0, MAX_TILES);
+}
+
+let preseedRunning = false;
+let preseedBoundsKey = '';
+
+/**
+ * Pre-fetch tiles for the given bounds at z=10-15. Warms both the
+ * Hono server-side disk cache and the native HTTP cache so the map
+ * opens without white-grid flicker.
+ *
+ * Safe to call many times — skips if already running for the same
+ * bounds, and caps total tiles at MAX_TILES.
+ */
+export async function preseedTiles(bounds: Bounds): Promise<void> {
+  const key = `${bounds.latMin},${bounds.latMax},${bounds.lngMin},${bounds.lngMax}`;
+  if (preseedRunning && preseedBoundsKey === key) return;
+  preseedRunning = true;
+  preseedBoundsKey = key;
+
+  try {
+    const coords = tileCoordsForBounds(bounds);
+    if (coords.length === 0) return;
+
+    const baseUrl = env.apiBaseUrl;
+    let idx = 0;
+
+    async function next(): Promise<void> {
+      while (idx < coords.length) {
+        const c = coords[idx++]!;
+        try {
+          await fetch(`${baseUrl}/api/tiles/${c.z}/${c.x}/${c.y}`);
+        } catch {
+          // best-effort — a single failed tile is harmless
+        }
+      }
+    }
+
+    const workers = Array.from(
+      { length: Math.min(MAX_CONCURRENT, coords.length) },
+      () => next(),
+    );
+    await Promise.all(workers);
+  } finally {
+    preseedRunning = false;
+  }
 }

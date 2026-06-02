@@ -5,6 +5,7 @@ import { Icon } from '@/components';
 import { colors } from '@/theme';
 import { haptic } from '@/lib/haptics';
 import { useModuleStore } from '@/stores/moduleStore';
+import { useTilePreseed } from '@/hooks/useTilePreseed';
 
 // Fired on every tab icon press. Matches the in-screen
 // pressables (cards, pickers, buttons) which all play
@@ -45,9 +46,11 @@ function usePrimaryTabLabel() {
 export default function TabsLayout() {
   const { t } = useTranslation();
   const primary = usePrimaryTabLabel();
+  useTilePreseed();
 
   return (
     <Tabs
+      initialRouteName="sensors"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.white,
@@ -67,20 +70,20 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
-        options={{
-          title: t('layout.tabs.map'),
-          tabBarIcon: ({ color }) => <Icon name="map" color={color} size={26} />,
-        }}
-        listeners={{ tabPress: onTabPress }}
-      />
-      <Tabs.Screen
         name="sensors"
         options={{
           title: primary.label,
           tabBarIcon: ({ color }) => (
             <Icon name={primary.icon} color={color} size={26} />
           ),
+        }}
+        listeners={{ tabPress: onTabPress }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: t('layout.tabs.map'),
+          tabBarIcon: ({ color }) => <Icon name="map" color={color} size={26} />,
         }}
         listeners={{ tabPress: onTabPress }}
       />
