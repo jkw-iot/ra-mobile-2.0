@@ -18,7 +18,7 @@ const onTabPress = () => {
   haptic.light();
 };
 
-// The "primary" tab (route name `sensors` for legacy reasons)
+// The "primary" tab (route name `index`, the default tab)
 // changes label and icon depending on the active module:
 //
 //   indeklima → "Sensorer"  + thermometer
@@ -27,7 +27,7 @@ const onTabPress = () => {
 // Keeping a single route means deep-links don't change when the
 // user swaps modules, while still letting each module own the
 // content that lives on its primary screen (the route file is a
-// thin dispatcher — see app/(tabs)/sensors.tsx).
+// thin dispatcher — see app/(tabs)/index.tsx).
 function usePrimaryTabLabel() {
   const { t } = useTranslation();
   const activeModule = useModuleStore((s) => s.activeModule);
@@ -50,7 +50,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      initialRouteName="sensors"
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.white,
@@ -70,7 +70,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="sensors"
+        name="index"
         options={{
           title: primary.label,
           tabBarIcon: ({ color }) => (
@@ -80,7 +80,7 @@ export default function TabsLayout() {
         listeners={{ tabPress: onTabPress }}
       />
       <Tabs.Screen
-        name="index"
+        name="map"
         options={{
           title: t('layout.tabs.map'),
           tabBarIcon: ({ color }) => <Icon name="map" color={color} size={26} />,

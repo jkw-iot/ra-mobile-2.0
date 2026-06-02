@@ -226,7 +226,7 @@ export default function SensorDetailScreen() {
     /**
      * Optional param hint passed by the sensor list when the user
      * tapped a card while filtering on a specific metric — see
-     * `app/(tabs)/sensors.tsx`. We use it as the initial selection
+     * `app/(tabs)/index.tsx`. We use it as the initial selection
      * if the sensor actually reports that param, falling back to
      * its first available param otherwise (handled below).
      */

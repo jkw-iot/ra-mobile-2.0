@@ -63,7 +63,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       if (only && activeTenantId !== only.id) {
         setActiveTenant(only.id);
       }
-      if (inAuthGroup || inTenantSelect) router.replace('/(tabs)/sensors');
+      if (inAuthGroup || inTenantSelect) router.replace('/(tabs)');
       return;
     }
 
@@ -75,7 +75,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
     // 5. Authenticated with valid tenant, sitting on auth/picker → move on
     if (inAuthGroup || inTenantSelect) {
-      router.replace('/(tabs)/sensors');
+      router.replace('/(tabs)');
     }
   }, [loading, isAuthenticated, tenants, activeTenantId, setActiveTenant, segments, router]);
 

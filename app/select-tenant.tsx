@@ -28,7 +28,7 @@ export default function SelectTenantScreen() {
   const pick = (id: number) => {
     haptic.medium();
     setActive(id);
-    router.replace('/(tabs)/sensors');
+    router.replace('/(tabs)');
   };
 
   return (

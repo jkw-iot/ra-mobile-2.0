@@ -1,13 +1,5 @@
-import { useEffect } from 'react';
-import { View, Text } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  Easing,
-} from 'react-native-reanimated';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, View, Text } from 'react-native';
 
 import { colors, spacing, type } from '@/theme';
 import { Logo } from './Logo';
@@ -22,80 +14,120 @@ const NODE_SIZE = 10;
 const SMALL_NODE_SIZE = 8;
 
 function useLoopRotation(durationMs: number, reverse = false) {
-  const rotation = useSharedValue(0);
+  const spin = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(reverse ? -360 : 360, {
+    spin.setValue(0);
+    const animation = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
         duration: durationMs,
         easing: Easing.linear,
+        useNativeDriver: true,
       }),
-      -1,
-      false,
     );
-  }, [rotation, durationMs, reverse]);
+    animation.start();
+    return () => animation.stop();
+  }, [spin, durationMs]);
 
-  return useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
+  const rotate = spin.interpolate({
+    inputRange: [0, 1],
+    outputRange: reverse ? ['0deg', '-360deg'] : ['0deg', '360deg'],
+  });
+
+  return { transform: [{ rotate }] };
 }
 
 function usePulse(durationMs: number) {
-  const scale = useSharedValue(0.9);
-  const opacity = useSharedValue(0.8);
+  const scale = useRef(new Animated.Value(0.9)).current;
+  const opacity = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.1, { duration: durationMs / 2, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.9, { duration: durationMs / 2, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      false,
+    const animation = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(scale, {
+            toValue: 1.1,
+            duration: durationMs / 2,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(scale, {
+            toValue: 0.9,
+            duration: durationMs / 2,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: durationMs / 2,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0.8,
+            duration: durationMs / 2,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
     );
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: durationMs / 2, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.8, { duration: durationMs / 2, easing: Easing.inOut(Easing.ease) }),
-      ),
-      -1,
-      false,
-    );
+    animation.start();
+    return () => animation.stop();
   }, [scale, opacity, durationMs]);
 
-  return useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+  return {
+    transform: [{ scale }],
+    opacity,
+  };
 }
 
 function usePing(durationMs: number) {
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(0.6);
+  const scale = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.4, { duration: durationMs, easing: Easing.out(Easing.ease) }),
-        withTiming(1, { duration: 0 }),
-      ),
-      -1,
-      false,
+    const animation = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(scale, {
+            toValue: 1.4,
+            duration: durationMs,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: durationMs,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0.6,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
     );
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(0, { duration: durationMs, easing: Easing.out(Easing.ease) }),
-        withTiming(0.6, { duration: 0 }),
-      ),
-      -1,
-      false,
-    );
+    animation.start();
+    return () => animation.stop();
   }, [scale, opacity, durationMs]);
 
-  return useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+  return {
+    transform: [{ scale }],
+    opacity,
+  };
 }
 
 function OuterRing() {

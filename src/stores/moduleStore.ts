@@ -41,13 +41,13 @@ export interface ModuleDef {
 }
 
 export const MODULES: readonly ModuleDef[] = [
-  { slug: 'indeklima',    i18nKey: 'layout.modules.indeklima',    icon: 'thermometer-half', available: true,  primaryRoute: '/(tabs)/sensors' },
-  { slug: 'preservation', i18nKey: 'layout.modules.preservation', icon: 'building',         available: false, primaryRoute: '/(tabs)/sensors' },
-  { slug: 'water',        i18nKey: 'layout.modules.water',        icon: 'droplet',          available: true,  primaryRoute: '/(tabs)/sensors' },
-  { slug: 'space',        i18nKey: 'layout.modules.space',        icon: 'people',           available: false, primaryRoute: '/(tabs)/sensors' },
-  { slug: 'pushbuttons',  i18nKey: 'layout.modules.pushbuttons',  icon: 'bell',             available: false, primaryRoute: '/(tabs)/sensors' },
-  { slug: 'doors',        i18nKey: 'layout.modules.doors',        icon: 'door-open',        available: false, primaryRoute: '/(tabs)/sensors' },
-  { slug: 'usage',        i18nKey: 'layout.modules.usage',        icon: 'graph-up',         available: false, primaryRoute: '/(tabs)/sensors' },
+  { slug: 'indeklima',    i18nKey: 'layout.modules.indeklima',    icon: 'thermometer-half', available: true,  primaryRoute: '/(tabs)' },
+  { slug: 'preservation', i18nKey: 'layout.modules.preservation', icon: 'building',         available: false, primaryRoute: '/(tabs)' },
+  { slug: 'water',        i18nKey: 'layout.modules.water',        icon: 'droplet',          available: true,  primaryRoute: '/(tabs)' },
+  { slug: 'space',        i18nKey: 'layout.modules.space',        icon: 'people',           available: false, primaryRoute: '/(tabs)' },
+  { slug: 'pushbuttons',  i18nKey: 'layout.modules.pushbuttons',  icon: 'bell',             available: false, primaryRoute: '/(tabs)' },
+  { slug: 'doors',        i18nKey: 'layout.modules.doors',        icon: 'door-open',        available: false, primaryRoute: '/(tabs)' },
+  { slug: 'usage',        i18nKey: 'layout.modules.usage',        icon: 'graph-up',         available: false, primaryRoute: '/(tabs)' },
 ];
 
 /**
@@ -58,7 +58,7 @@ export const MODULES: readonly ModuleDef[] = [
  */
 export function getModulePrimaryRoute(slug: ModuleSlug): Href {
   return (
-    MODULES.find((m) => m.slug === slug)?.primaryRoute ?? '/(tabs)/sensors'
+    MODULES.find((m) => m.slug === slug)?.primaryRoute ?? '/(tabs)'
   );
 }
 

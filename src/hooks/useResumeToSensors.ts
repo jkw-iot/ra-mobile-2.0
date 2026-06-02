@@ -50,7 +50,7 @@ export function useResumeToSensors(enabled: boolean): void {
         backgroundedAt.current = null;
         if (!enabled || since === null) return;
         if (Date.now() - since < RESUME_TO_SENSORS_AFTER_MS) return;
-        router.replace('/(tabs)/sensors');
+        router.replace('/(tabs)');
       }
     });
 

@@ -1,20 +1,23 @@
 // ══════════════════════════════════════════════════════════════
-// Module-aware "Kort" (Map) tab.
+// Module-aware "primary" tab route.
 //
-// Indeklima  → live sensor map (IndeklimaMapScreen)
-// Water      → water-detection map (WaterMapScreen)
+// Each module slug picks its own home screen for this slot in the
+// tab bar. The label/icon for the tab itself is owned by
+// `app/(tabs)/_layout.tsx` (see `useModuleStore`); this file only
+// dispatches to the right feature screen.
 //
-// Kept as a thin dispatcher so deep-links to "/" don't change
-// when the user swaps modules. Each module owns its own screen
-// — we don't try to share a generic shell.
+// Indeklima  → sensor list (SensorsScreen)
+// Water      → dashboard (DashboardScreen)
+// Anything else falls back to the indeklima list — defensive, in
+// case a stale persisted module slug survives an upgrade.
 // ══════════════════════════════════════════════════════════════
-import IndeklimaMapScreen from '@/features/indeklima/MapScreen';
-import WaterMapScreen from '@/features/waterdetection/MapScreen';
+import IndeklimaSensorsScreen from '@/features/indeklima/SensorsScreen';
+import WaterDashboardScreen from '@/features/waterdetection/DashboardScreen';
 import { useModuleStore } from '@/stores/moduleStore';
 
-export default function MapTabRoute() {
+export default function PrimaryTabRoute() {
   const activeModule = useModuleStore((s) => s.activeModule);
 
-  if (activeModule === 'water') return <WaterMapScreen />;
-  return <IndeklimaMapScreen />;
+  if (activeModule === 'water') return <WaterDashboardScreen />;
+  return <IndeklimaSensorsScreen />;
 }

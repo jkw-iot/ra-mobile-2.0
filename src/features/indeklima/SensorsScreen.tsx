@@ -62,7 +62,7 @@ import { cacheTiers } from '@/lib/queryClient';
 import type { StatusTone } from '@/theme';
 import { haptic } from '@/lib/haptics';
 import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
-import { format, subHours } from 'date-fns';
+import { format } from 'date-fns';
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -167,22 +167,12 @@ function valueTone(
   return 'good';
 }
 
-function toneBg(tone: 'good' | 'warn' | 'bad' | undefined): string {
-  switch (tone) {
-    case 'good': return 'rgba(108,158,131,0.15)';
-    case 'warn': return 'rgba(240,173,78,0.15)';
-    case 'bad': return 'rgba(214,91,91,0.15)';
-    default: return colors.gray[100];
-  }
+function toneBg(_tone: 'good' | 'warn' | 'bad' | undefined): string {
+  return colors.gray[100];
 }
 
-function toneText(tone: 'good' | 'warn' | 'bad' | undefined): string {
-  switch (tone) {
-    case 'good': return colors.statusGood;
-    case 'warn': return colors.statusWarn;
-    case 'bad': return colors.statusBad;
-    default: return colors.gray[700];
-  }
+function toneText(_tone: 'good' | 'warn' | 'bad' | undefined): string {
+  return colors.gray[700];
 }
 
 // ── Metric pill (colour-coded secondary metric) ───────────
@@ -401,7 +391,7 @@ function SensorCard({
           so we drop it entirely. `tone === 'neutral'` covers
           both silent sensors (`isSilent === true`) and live
           sensors whose `statusColor` is `'grey'` or unmapped. */}
-      {tone === 'good' || tone === 'bad' ? (
+      {tone === 'bad' ? (
         <View style={{ width: 4, backgroundColor: stripe }} />
       ) : null}
       <View
@@ -531,8 +521,6 @@ function SensorCard({
             <Text style={{ fontSize: 26, fontWeight: '700', color: colors.gray[300] }}>—</Text>
           )}
         </View>
-
-        <Icon name="chevron-right" color={colors.gray[300]} size={16} />
       </View>
       </View>
     </Pressable>
@@ -541,16 +529,6 @@ function SensorCard({
 }
 
 // ── Screen ─────────────────────────────────────────────────
-// Which hourly-aggregate column represents the param in the
-// `/history?resolution=hourly` payload. Most params are averaged;
-// presence is the only count-style aggregate (`pir_sum`).
-const PARAM_AVG_KEY: Record<ParamKey, string> = {
-  temp: 'temp_avg',
-  hum: 'hum_avg',
-  co2: 'co2_avg',
-  voc: 'voc_avg',
-  pir: 'pir_sum',
-};
 
 const TREND_MIN_DELTA: Record<ParamKey, number> = {
   temp: 0.1,
@@ -727,12 +705,13 @@ export default function IndeklimaSensorsScreen() {
     return m;
   }, [visible, thresholdQueries]);
 
-  // Trend: small batched hourly fetch per visible sensor for the
-  // last ~4h. Gives us enough points to tell rising from falling
-  // without spamming the API. Capped at 24 sensors per screen to
-  // avoid pathological cases.
-  const trendFrom = useMemo(() => format(subHours(new Date(), 4), 'yyyy-MM-dd'), []);
-  const trendTo = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  // Trend: fetch today's raw readings per visible sensor and
+  // compare the last two non-null values for the selected param.
+  // Raw readings are always available (live data, not a deferred
+  // hourly-aggregation cache), so this reliably detects whether the
+  // metric is rising or falling. Capped at 24 sensors to avoid
+  // pathological cases.
+  const trendDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const trendCandidates = visible.slice(0, 24);
   const trendQueries = useQueries({
     queries: trendCandidates.map((s) => ({
@@ -741,42 +720,39 @@ export default function IndeklimaSensorsScreen() {
         'sensor',
         s.id,
         'trend',
-        { from: trendFrom, to: trendTo, tenantId: activeTenantId },
+        { date: trendDate, tenantId: activeTenantId },
       ],
       queryFn: () =>
         indeklimaApi.getSensorHistory(s.id, {
-          resolution: 'hourly',
-          from: trendFrom,
-          to: trendTo,
+          date: trendDate,
+          resolution: 'raw',
         }),
       enabled: activeTenantId !== null,
-      staleTime: cacheTiers.downsampled.staleTime,
-      gcTime: cacheTiers.downsampled.gcTime,
+      staleTime: cacheTiers.snapshot.staleTime,
+      gcTime: cacheTiers.raw.gcTime,
     })),
   });
 
   const trendMap = useMemo(() => {
     const m = new Map<number, Trend>();
     trendCandidates.forEach((s, i) => {
-      const data = trendQueries[i]?.data as
-        | { resolution?: string; readings?: Array<Record<string, number | null>> }
-        | undefined;
-      const readings = data?.readings;
+      const data = trendQueries[i]?.data;
+      const readings = Array.isArray(data) ? data : undefined;
       if (!readings || readings.length < 2) {
         m.set(s.id, 'unknown');
         return;
       }
-      const avgKey = PARAM_AVG_KEY[primaryParam];
-      const values = readings
-        .map((r) => toFiniteNumber(r[avgKey]))
-        .filter((v): v is number => v !== null);
-      if (values.length < 2) {
+      const rawKey = primaryParam;
+      const recent: number[] = [];
+      for (let j = readings.length - 1; j >= 0 && recent.length < 2; j--) {
+        const v = toFiniteNumber((readings[j] as Record<string, unknown>)[rawKey]);
+        if (v !== null) recent.push(v);
+      }
+      if (recent.length < 2) {
         m.set(s.id, 'unknown');
         return;
       }
-      const first = values[0]!;
-      const last = values[values.length - 1]!;
-      const delta = last - first;
+      const delta = recent[0]! - recent[1]!;
       const min = TREND_MIN_DELTA[primaryParam];
       if (Math.abs(delta) < min) m.set(s.id, 'flat');
       else m.set(s.id, delta > 0 ? 'up' : 'down');
