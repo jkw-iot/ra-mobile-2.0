@@ -2,11 +2,11 @@
 // Sensor detail — premium layout.
 //
 //  - Navy hero with a "Tilbage" pill back-button on the left and
-//    the sensor name immediately to its right (one row), then the
-//    last-reading timestamp on the second row with battery and
-//    coverage as tappable icon-only chips on the far right. Tap a
-//    chip to surface a short native explainer (Alert) describing
-//    what the current level means.
+//    the sensor name on the right (row 1), followed by a
+//    measurement timestamp (row 2) and a composite status strip
+//    (row 3) showing scenario name + battery + coverage icons.
+//    Tapping the strip opens a single SensorInfoSheet bottom-sheet
+//    combining scenario details, battery level, and coverage info.
 //  - KPI tiles only rendered for parameters the sensor actually
 //    reports. Tap a tile to plot that parameter in the graph.
 //  - Chart plots the selected param with threshold-based
@@ -25,7 +25,6 @@ import {
   RefreshControl,
   StatusBar,
   Platform,
-  Alert,
 } from 'react-native';
 import { useMemo, useState, useEffect, type ReactNode } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -46,7 +45,8 @@ import {
   HeroBackButton,
   KpiTile,
 } from '@/components';
-import { colors, radius, spacing, type, toneColor } from '@/theme';
+import type { StatusBarZone } from '@/components';
+import { colors, spacing, type, toneColor } from '@/theme';
 import {
   useSensor,
   useSensorHistoryRaw,
@@ -63,7 +63,8 @@ import {
   OutdoorWeatherTile,
   useOutdoorAnchor,
 } from '@/features/indeklima/OutdoorWeatherCard';
-import { ScenarioBadge } from '@/features/indeklima/ScenarioBadge';
+import { SensorInfoSheet } from '@/features/indeklima/SensorInfoSheet';
+import { findScenarioById } from '@/features/indeklima/scenarios';
 import {
   normalizeThresholds,
   buildZonesForParam,
@@ -87,7 +88,7 @@ import { useDetailPrefsStore, type DetailPeriod } from '@/stores/detailPrefsStor
 import { useTenantTime } from '@/hooks/useTenantTime';
 import type { TenantTime } from '@/lib/datetime';
 
-type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'pir';
+type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'sound' | 'light' | 'pir';
 
 function isPresent(v: number | string | undefined): v is number | string {
   if (v == null || v === '-' || v === '') return false;
@@ -130,27 +131,24 @@ function formatMeasurementStamp(raw: string | undefined, tt: TenantTime): string
 
 
 // ── Battery helpers ────────────────────────────────────────
-// Backend ships battery as either 0–3 (mock) or millivolts (legacy).
-// For display we quantise to 0 (empty) / 1 (low) / 2 (med) / 3 (full).
+// Mirrors `deriveBatteryLevel()` from the web app
+// (server/utils/sensorBattery.js) exactly.
+//
+// DT/Efento sensors report 1–100 (percent); legacy A-series
+// report mV (typically 2200–3300). Detect by range.
 function batteryLevel(raw: number): 0 | 1 | 2 | 3 {
-  if (!Number.isFinite(raw)) return 0;
-  if (raw <= 10) {
-    const n = Math.round(raw);
-    return Math.max(0, Math.min(3, n)) as 0 | 1 | 2 | 3;
-  }
-  // Millivolts → percent, clamped to 0..1 then bucketed.
-  const pct = (raw - 2300) / (3000 - 2300);
-  if (pct <= 0.2) return 0;
-  if (pct <= 0.4) return 1;
-  if (pct <= 0.75) return 2;
-  return 3;
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  if (raw <= 100) return raw > 50 ? 3 : raw > 20 ? 2 : 1;
+  if (raw > 2800) return 3;
+  if (raw >= 2600) return 2;
+  return 1;
 }
 
 type BatteryKey = 'empty' | 'low' | 'medium' | 'high';
 const BATTERY_META: Record<0 | 1 | 2 | 3, { icon: string; tone: string; key: BatteryKey }> = {
   0: { icon: 'battery-empty',  tone: colors.statusBad,  key: 'empty' },
-  1: { icon: 'battery-low',    tone: colors.statusWarn, key: 'low' },
-  2: { icon: 'battery-medium', tone: colors.statusGood, key: 'medium' },
+  1: { icon: 'battery-low',    tone: colors.statusBad,  key: 'low' },
+  2: { icon: 'battery-medium', tone: colors.statusWarn, key: 'medium' },
   3: { icon: 'battery-high',   tone: colors.statusGood, key: 'high' },
 };
 
@@ -171,49 +169,6 @@ const COVERAGE_META: Record<0 | 1 | 2 | 3 | 4, { icon: string; tone: string; key
   1: { icon: 'signal-1', tone: colors.statusBad,  key: 'poor' },
   0: { icon: 'signal-0', tone: colors.gray[400],  key: 'none' },
 };
-
-// ── Meta icon button ───────────────────────────────────────
-// Compact icon-only chip in the navy hero. Tapping surfaces a
-// short native explainer (Alert) so end users can learn what a
-// "good" / "low" / "no signal" reading actually means without
-// us needing to inline a tooltip on the dark background.
-function MetaIconButton({
-  icon,
-  tone,
-  onPress,
-  accessibilityLabel,
-}: {
-  icon: string;
-  tone: string;
-  onPress: () => void;
-  accessibilityLabel: string;
-}) {
-  return (
-    <Pressable
-      onPress={() => {
-        haptic.light();
-        onPress();
-      }}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-    >
-      <View
-        style={{
-          width: 30,
-          height: 30,
-          borderRadius: radius.full,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: 'rgba(255,255,255,0.1)',
-        }}
-      >
-        <Icon name={icon} color={tone} size={16} />
-      </View>
-    </Pressable>
-  );
-}
 
 // ── Screen ─────────────────────────────────────────────────
 export default function SensorDetailScreen() {
@@ -252,7 +207,7 @@ export default function SensorDetailScreen() {
   // poison `param` state.
   const initialParamHint = useMemo<Param | null>(() => {
     const v = typeof paramParam === 'string' ? paramParam : null;
-    if (v === 'temp' || v === 'hum' || v === 'co2' || v === 'voc' || v === 'pir') {
+    if (v === 'temp' || v === 'hum' || v === 'co2' || v === 'voc' || v === 'sound' || v === 'light' || v === 'pir') {
       return v;
     }
     return null;
@@ -319,7 +274,7 @@ export default function SensorDetailScreen() {
   // Which params does this sensor expose?
   const availableParams = useMemo<Param[]>(() => {
     if (!sensor) return [];
-    const all: Param[] = ['temp', 'hum', 'co2', 'voc', 'pir'];
+    const all: Param[] = ['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'];
     return all.filter((p) => {
       if (!sensorSupports(sensor.sensorType, p, typeMap)) return false;
       return isPresent(sensor[p]);
@@ -340,10 +295,9 @@ export default function SensorDetailScreen() {
   const outdoorAnchor = useOutdoorAnchor(sensor);
   const showOutdoorTile = outdoorAnchor != null;
 
-  // Effective scenario (sensor → location → global). We pull
-  // this up to the screen so we can shrink the hero's bottom
-  // padding when the badge is present — keeping the navy area
-  // from growing taller than its no-scenario baseline.
+  // Effective scenario (sensor -> location -> global). Used in
+  // the composite status strip to show the scenario name and
+  // passed to SensorInfoSheet for full details.
   const effectiveScenario = useEffectiveScenario(sensor);
   const showScenarioRow =
     !effectiveScenario.isLoading && effectiveScenario.data != null;
@@ -406,18 +360,27 @@ export default function SensorDetailScreen() {
   const batLabel = t(`indeklima.sensor_detail.battery.level.${batMeta.key}`);
   const sigLabel = t(`indeklima.sensor_detail.coverage.${sigMeta.key}`);
 
-  const showBatteryInfo = () => {
-    Alert.alert(
-      `${t('indeklima.sensor_detail.battery.label')}: ${batLabel}`,
-      t(`indeklima.sensor_detail.battery.explain.${batMeta.key}`),
-    );
-  };
-  const showCoverageInfo = () => {
-    Alert.alert(
-      `${t('indeklima.sensor_detail.coverage.label')}: ${sigLabel}`,
-      t(`indeklima.sensor_detail.coverage.explain.${sigMeta.key}`),
-    );
-  };
+  const [infoSheetOpen, setInfoSheetOpen] = useState(false);
+
+  const rawBattery = Number(sensor.battery);
+  const isPctBattery = Number.isFinite(rawBattery) && rawBattery > 0 && rawBattery <= 100;
+  const batteryDisplay = isPctBattery ? `${rawBattery}%` : `${rawBattery} mV`;
+  const batteryScaleLabel = isPctBattery ? '20% · 50%' : '2600 · 2800 mV';
+  const batteryBarZones: StatusBarZone[] = [
+    { key: 'low',    color: colors.statusBad,  active: bat <= 1 },
+    { key: 'medium', color: colors.statusWarn, active: bat === 2 },
+    { key: 'good',   color: colors.statusGood, active: bat === 3 },
+  ];
+
+  const rawCoverage = Number(sensor.coverage);
+  const coverageDisplay = Number.isFinite(rawCoverage) && rawCoverage !== 0
+    ? `${rawCoverage} dBm` : '—';
+  const coverageBarZones: StatusBarZone[] = [
+    { key: 'poor',      color: colors.statusBad,  active: sig === 1 },
+    { key: 'medium',    color: colors.statusWarn, active: sig === 2 },
+    { key: 'good',      color: colors.statusGood, active: sig === 3 },
+    { key: 'excellent', color: colors.statusGood, active: sig === 4 },
+  ];
 
   const unitFor = (p: Param) => unitForParam(sensor, p);
 
@@ -428,16 +391,12 @@ export default function SensorDetailScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
       {Platform.OS === 'ios' ? <StatusBar barStyle="light-content" /> : null}
 
-      {/* Navy hero
-          When the scenario badge is visible we shrink the bottom
-          padding so the dark area stays roughly the same height
-          as the no-scenario baseline (the badge fills the space
-          that would otherwise be empty navy). */}
+      {/* Navy hero */}
       <View
         style={{
           backgroundColor: colors.navy,
           paddingTop: insets.top + spacing.xs,
-          paddingBottom: showScenarioRow ? spacing.sm : spacing.lg,
+          paddingBottom: spacing.sm,
         }}
       >
         {/* Row 1: back button + sensor name */}
@@ -466,7 +425,7 @@ export default function SensorDetailScreen() {
           </Text>
         </View>
 
-        {/* Row 2: measurement time (left) + battery / coverage icons (right) */}
+        {/* Row 2: measurement time */}
         <View
           style={{
             flexDirection: 'row',
@@ -488,38 +447,58 @@ export default function SensorDetailScreen() {
           >
             {t('indeklima.sensor_detail.measurement_at', { when: fullMeasurementTime })}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-            <MetaIconButton
-              icon={batMeta.icon}
-              tone={batMeta.tone}
-              onPress={showBatteryInfo}
-              accessibilityLabel={`${t('indeklima.sensor_detail.battery.label')}: ${batLabel}`}
-            />
-            <MetaIconButton
-              icon={sigMeta.icon}
-              tone={sigMeta.tone}
-              onPress={showCoverageInfo}
-              accessibilityLabel={`${t('indeklima.sensor_detail.coverage.label')}: ${sigLabel}`}
-            />
-          </View>
         </View>
 
-        {/* Row 3: active scenario — only rendered once we know there
-            IS one. Tight marginTop and the conditional bottom-pad
-            above keep the navy hero from growing visibly taller.
-            Sits right under the measurement-time row, almost
-            touching it, so the two read as a single metadata
-            stack rather than separate sections. */}
-        {showScenarioRow ? (
+        {/* Row 3: composite status strip — scenario + battery + coverage.
+            Always rendered. Tapping opens the combined SensorInfoSheet. */}
+        <Pressable
+          onPress={() => {
+            haptic.light();
+            setInfoSheetOpen(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t('indeklima.sensor_detail.sensor_info_title')}
+          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+        >
           <View
             style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
               paddingHorizontal: spacing.md,
               marginTop: 2,
+              minHeight: 24,
             }}
           >
-            <ScenarioBadge sensor={sensor} availableParams={availableParams} />
+            {showScenarioRow && effectiveScenario.data ? (() => {
+              const meta = findScenarioById(effectiveScenario.data.scenarioId);
+              const name = meta
+                ? t(`indeklima.scenarios.${meta.labelKey}`)
+                : effectiveScenario.data.scenarioId;
+              return (
+                <>
+                  <Icon name="sliders" color="rgba(255,255,255,0.7)" size={13} />
+                  <Text
+                    style={{
+                      color: 'rgba(255,255,255,0.9)',
+                      fontSize: 13,
+                      fontWeight: '600',
+                      flexShrink: 1,
+                    }}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {name}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>·</Text>
+                </>
+              );
+            })() : null}
+            <Icon name={batMeta.icon} color={batMeta.tone} size={14} />
+            <Icon name={sigMeta.icon} color={sigMeta.tone} size={14} />
+            <Icon name="chevron-right" color="rgba(255,255,255,0.8)" size={14} />
           </View>
-        ) : null}
+        </Pressable>
       </View>
 
       <ScrollView
@@ -771,6 +750,29 @@ export default function SensorDetailScreen() {
           </SectionCard>
         ) : null}
       </ScrollView>
+
+      {/* Combined sensor info sheet */}
+      <SensorInfoSheet
+        open={infoSheetOpen}
+        onClose={() => setInfoSheetOpen(false)}
+        scenario={effectiveScenario.data ?? null}
+        availableParams={availableParams}
+        batteryIcon={batMeta.icon}
+        batteryTone={batMeta.tone}
+        batteryLabel={batLabel}
+        batteryExplainKey={`indeklima.sensor_detail.battery.explain.${batMeta.key}`}
+        batteryRaw={rawBattery}
+        batteryDisplay={batteryDisplay}
+        batteryScaleLabel={batteryScaleLabel}
+        batteryBarZones={batteryBarZones}
+        coverageIcon={sigMeta.icon}
+        coverageTone={sigMeta.tone}
+        coverageLabel={sigLabel}
+        coverageExplainKey={`indeklima.sensor_detail.coverage.explain.${sigMeta.key}`}
+        coverageSignalLevel={sig}
+        coverageDisplay={coverageDisplay}
+        coverageBarZones={coverageBarZones}
+      />
     </View>
   );
 }
@@ -870,6 +872,8 @@ function paramIcon(p: Param): string {
     case 'hum': return 'droplet';
     case 'co2': return 'cloud';
     case 'voc': return 'wind';
+    case 'sound': return 'volume-up';
+    case 'light': return 'brightness-high';
     case 'pir': return 'person';
   }
 }

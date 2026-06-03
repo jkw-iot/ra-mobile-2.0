@@ -131,7 +131,7 @@ export function historyToPoints(
     for (const r of hist) {
       const t = readingEpoch(r, tz);
       if (t == null) continue;
-      const raw = r[param];
+      const raw = (r as Record<string, unknown>)[param];
       const v = raw == null ? null : Number(raw);
       out.push({ t, v: v == null || !Number.isFinite(v) ? null : v });
     }
@@ -147,6 +147,8 @@ export function paramColor(p: Param): string {
     case 'hum': return colors.dusty[7];
     case 'co2': return colors.dusty[2];
     case 'voc': return colors.dusty[5];
+    case 'sound': return colors.dusty[5]; // muted sage — matches web PARAM_META
+    case 'light': return colors.dusty[6]; // warm taupe — matches web PARAM_META
     case 'pir': return colors.dusty[0]; // brand blue-gray — matches web
   }
 }
@@ -161,6 +163,8 @@ export function unitForParam(sensor: Sensor | undefined | null, p: Param): strin
   if (p === 'temp') return sensor?.tempUnit ?? '°C';
   if (p === 'hum') return sensor?.humUnit ?? '%';
   if (p === 'co2') return sensor?.co2Unit ?? 'ppm';
+  if (p === 'sound') return sensor?.soundUnit ?? 'dB';
+  if (p === 'light') return sensor?.lightUnit ?? 'lux';
   if (p === 'pir') return '';
   return sensor?.vocUnit ?? 'ppb';
 }

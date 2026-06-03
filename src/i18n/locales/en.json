@@ -134,6 +134,8 @@
         "hum": "Humidity",
         "co2": "CO₂",
         "voc": "VOC",
+        "sound": "Sound",
+        "light": "Light",
         "pir": "Presence"
       },
       "param_short": {
@@ -141,6 +143,8 @@
         "hum": "Hum",
         "co2": "CO₂",
         "voc": "VOC",
+        "sound": "Sound",
+        "light": "Light",
         "pir": "Presence"
       },
       "primary_param": "Display parameter",
@@ -152,6 +156,7 @@
       "open_fullscreen": "Open graph fullscreen",
       "range_today": "Today",
       "no_history": "No readings in this period",
+      "sensor_info_title": "Sensor info",
       "error_title": "Could not load sensor",
       "error_description": "We can't fetch data for this sensor right now.",
       "battery": {
@@ -165,9 +170,11 @@
         "explain": {
           "empty": "The battery is almost empty — replace the sensor soon to avoid missing data.",
           "low": "The battery level is low — consider scheduling a replacement.",
-          "medium": "The battery level is fine — the sensor has power for normal operation.",
+          "medium": "The battery level is declining — plan a replacement as soon as possible.",
           "high": "The battery is fully charged and ready for many months of operation."
-        }
+        },
+        "raw_label": "Level",
+        "rssi_label": "Signal"
       },
       "coverage": {
         "label": "Coverage",
@@ -182,7 +189,8 @@
           "medium": "The sensor has medium signal coverage — it works but may experience delays.",
           "poor": "The sensor has poor signal coverage and may temporarily lose connection.",
           "none": "The sensor has no signal coverage and is not sending data right now."
-        }
+        },
+        "rssi_label": "Signal"
       },
       "outdoor": {
         "title": "Outdoor",

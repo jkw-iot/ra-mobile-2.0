@@ -134,6 +134,8 @@
         "hum": "Luftfugtighed",
         "co2": "CO₂",
         "voc": "VOC",
+        "sound": "Lyd",
+        "light": "Lys",
         "pir": "Tilstedeværelse"
       },
       "param_short": {
@@ -141,6 +143,8 @@
         "hum": "Fugt",
         "co2": "CO₂",
         "voc": "VOC",
+        "sound": "Lyd",
+        "light": "Lys",
         "pir": "Tilstede"
       },
       "primary_param": "Vis parameter",
@@ -152,6 +156,7 @@
       "open_fullscreen": "Åbn graf i fuld skærm",
       "range_today": "I dag",
       "no_history": "Ingen målinger i denne periode",
+      "sensor_info_title": "Sensorinfo",
       "error_title": "Kunne ikke hente sensor",
       "error_description": "Vi kan ikke hente data for denne sensor lige nu.",
       "battery": {
@@ -165,9 +170,11 @@
         "explain": {
           "empty": "Batteriet er næsten tomt — sensoren bør udskiftes snart, ellers risikerer du at miste data.",
           "low": "Batteriniveauet er lavt — overvej at planlægge udskiftning inden for kort tid.",
-          "medium": "Batteriniveauet er fint — sensoren har strøm til normal drift.",
+          "medium": "Batteriniveauet er faldende — planlæg udskiftning snarest.",
           "high": "Batteriet er fuldt opladet og klar til mange måneders drift."
-        }
+        },
+        "raw_label": "Niveau",
+        "rssi_label": "Signal"
       },
       "coverage": {
         "label": "Dækning",
@@ -182,7 +189,8 @@
           "medium": "Sensoren har middel signaldækning — den fungerer, men kan opleve forsinkelser.",
           "poor": "Sensoren har dårlig signaldækning og kan miste forbindelsen i kortere perioder.",
           "none": "Sensoren har ingen signaldækning og sender ikke data lige nu."
-        }
+        },
+        "rssi_label": "Signal"
       },
       "outdoor": {
         "title": "Udendørs",

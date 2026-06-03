@@ -19,7 +19,7 @@
 // ══════════════════════════════════════════════════════════════
 import type { SensorThresholds } from '@/services/api';
 
-export type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'pir';
+export type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'sound' | 'light' | 'pir';
 
 export interface NormalizedBand {
   lower?: number;
@@ -57,6 +57,8 @@ const PARAM_ALIASES: Record<Param, readonly string[]> = {
   hum: ['hum', 'humidity', 'hum_rh'],
   co2: ['co2', 'carbondioxide'],
   voc: ['voc', 'voc_ppb'],
+  sound: ['sound'],
+  light: ['light'],
   pir: ['pir', 'presence', 'motion', 'occupancy'],
 };
 

@@ -17,13 +17,15 @@ import { Icon } from './Icon';
 import { colors, radius } from '@/theme';
 import { haptic } from '@/lib/haptics';
 
-export type ParamKey = 'temp' | 'hum' | 'co2' | 'voc' | 'pir';
+export type ParamKey = 'temp' | 'hum' | 'co2' | 'voc' | 'sound' | 'light' | 'pir';
 
 export const PARAM_ORDER: readonly ParamKey[] = [
   'temp',
   'hum',
   'co2',
   'voc',
+  'sound',
+  'light',
   'pir',
 ];
 
@@ -36,6 +38,8 @@ export const PARAM_META: Record<ParamKey, { label: string; icon: string }> = {
   hum: { label: 'Fugt', icon: 'humidity' },
   co2: { label: 'CO₂', icon: 'co2' },
   voc: { label: 'VOC', icon: 'air-filter' },
+  sound: { label: 'Lyd', icon: 'volume-up' },
+  light: { label: 'Lys', icon: 'brightness-high' },
   pir: { label: 'Tilstedeværelse', icon: 'motion-sensor' },
 };
 

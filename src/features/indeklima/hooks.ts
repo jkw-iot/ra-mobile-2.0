@@ -287,15 +287,24 @@ export function buildTypeParamsMap(
   return m;
 }
 
-/** Check whether a sensor supports a given parameter. */
+/**
+ * Check whether a sensor supports a given parameter.
+ *
+ * Matches the web app's `normalizeSensor` rules: unmapped legacy
+ * type ids default to core climate (temp/hum/co2/voc). Sound,
+ * light, and PIR are ONLY shown when the sensor type is explicitly
+ * registered in the DB and lists that param.
+ */
+const CORE_CLIMATE: ReadonlySet<string> = new Set(['temp', 'hum', 'co2', 'voc']);
+
 export function sensorSupports(
   sensorType: string | undefined,
   param: string,
   typeMap: Map<string, Set<string>>,
 ): boolean {
-  if (!sensorType) return true; // unknown type → show all
+  if (!sensorType) return CORE_CLIMATE.has(param);
   const allowed = typeMap.get(String(sensorType));
-  if (!allowed) return true; // not in our DB → show all
+  if (!allowed) return CORE_CLIMATE.has(param);
   return allowed.has(param);
 }
 

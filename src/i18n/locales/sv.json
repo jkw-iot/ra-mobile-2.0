@@ -134,6 +134,8 @@
         "hum": "Luftfuktighet",
         "co2": "CO₂",
         "voc": "VOC",
+        "sound": "Ljud",
+        "light": "Ljus",
         "pir": "Närvaro"
       },
       "param_short": {
@@ -141,6 +143,8 @@
         "hum": "Fukt",
         "co2": "CO₂",
         "voc": "VOC",
+        "sound": "Ljud",
+        "light": "Ljus",
         "pir": "Närvaro"
       },
       "primary_param": "Visa parameter",
@@ -152,6 +156,7 @@
       "open_fullscreen": "Öppna graf i helskärm",
       "range_today": "I dag",
       "no_history": "Inga mätningar i perioden",
+      "sensor_info_title": "Sensorinfo",
       "error_title": "Kunde inte hämta sensor",
       "error_description": "Vi kan inte hämta data för den här sensorn just nu.",
       "battery": {
@@ -165,9 +170,11 @@
         "explain": {
           "empty": "Batteriet är nästan tomt — sensorn bör bytas snart, annars riskerar du att förlora data.",
           "low": "Batterinivån är låg — planera ett byte inom kort.",
-          "medium": "Batterinivån är ok — sensorn har ström för normal drift.",
+          "medium": "Batterinivån sjunker — planera ett byte snarast.",
           "high": "Batteriet är fulladdat och redo för många månaders drift."
-        }
+        },
+        "raw_label": "Nivå",
+        "rssi_label": "Signal"
       },
       "coverage": {
         "label": "Täckning",
@@ -182,7 +189,8 @@
           "medium": "Sensorn har medelgod signaltäckning — den fungerar men kan uppleva fördröjningar.",
           "poor": "Sensorn har dålig signaltäckning och kan tappa förbindelsen tillfälligt.",
           "none": "Sensorn har ingen signaltäckning och skickar inga data just nu."
-        }
+        },
+        "rssi_label": "Signal"
       },
       "outdoor": {
         "title": "Utomhus",

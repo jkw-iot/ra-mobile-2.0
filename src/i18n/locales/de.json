@@ -134,6 +134,8 @@
         "hum": "Luftfeuchtigkeit",
         "co2": "CO₂",
         "voc": "VOC",
+        "sound": "Lautstärke",
+        "light": "Licht",
         "pir": "Anwesenheit"
       },
       "param_short": {
@@ -141,6 +143,8 @@
         "hum": "Feuchte",
         "co2": "CO₂",
         "voc": "VOC",
+        "sound": "Laut.",
+        "light": "Licht",
         "pir": "Anwes."
       },
       "primary_param": "Parameter anzeigen",
@@ -152,6 +156,7 @@
       "open_fullscreen": "Vollbildansicht öffnen",
       "range_today": "Heute",
       "no_history": "Keine Messwerte im Zeitraum",
+      "sensor_info_title": "Sensorinfo",
       "error_title": "Sensor konnte nicht geladen werden",
       "error_description": "Die Sensordaten sind gerade nicht verfügbar.",
       "battery": {
@@ -165,9 +170,11 @@
         "explain": {
           "empty": "Die Batterie ist fast leer — der Sensor sollte bald getauscht werden, sonst gehen Daten verloren.",
           "low": "Der Batteriestand ist niedrig — planen Sie demnächst einen Austausch ein.",
-          "medium": "Der Batteriestand ist in Ordnung — der Sensor hat genug Energie für den Normalbetrieb.",
+          "medium": "Der Batteriestand sinkt — planen Sie baldmöglichst einen Austausch ein.",
           "high": "Die Batterie ist voll geladen und für viele Monate Betrieb bereit."
-        }
+        },
+        "raw_label": "Stand",
+        "rssi_label": "Signal"
       },
       "coverage": {
         "label": "Abdeckung",
@@ -182,7 +189,8 @@
           "medium": "Der Sensor hat eine mittlere Signalabdeckung — er funktioniert, kann aber Verzögerungen haben.",
           "poor": "Der Sensor hat eine schlechte Signalabdeckung und verliert möglicherweise zeitweise die Verbindung.",
           "none": "Der Sensor hat keine Signalabdeckung und sendet derzeit keine Daten."
-        }
+        },
+        "rssi_label": "Signal"
       },
       "outdoor": {
         "title": "Außen",

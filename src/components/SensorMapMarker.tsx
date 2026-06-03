@@ -75,6 +75,10 @@ function unitFor(param: ParamKey, sensor: FlatSensor): string {
       return sensor.co2Unit ?? 'ppm';
     case 'voc':
       return sensor.vocUnit ?? 'ppb';
+    case 'sound':
+      return sensor.soundUnit ?? 'dB';
+    case 'light':
+      return sensor.lightUnit ?? 'lux';
     case 'pir':
     default:
       return '';

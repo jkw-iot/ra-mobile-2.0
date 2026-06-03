@@ -287,6 +287,8 @@ function SensorCard({
     hum: sensor.humUnit ?? '%',
     co2: sensor.co2Unit ?? 'ppm',
     voc: sensor.vocUnit ?? 'ppb',
+    sound: sensor.soundUnit ?? 'dB',
+    light: sensor.lightUnit ?? 'lux',
     pir: '',
   };
   const paramIcon: Record<ParamKey, string> = {
@@ -294,6 +296,8 @@ function SensorCard({
     hum: 'droplet',
     co2: 'cloud',
     voc: 'wind',
+    sound: 'volume-up',
+    light: 'brightness-high',
     pir: 'person',
   };
 
@@ -326,7 +330,7 @@ function SensorCard({
       : undefined;
 
   const secondaryParams: ParamKey[] = (
-    ['temp', 'hum', 'co2', 'voc', 'pir'] as ParamKey[]
+    ['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'] as ParamKey[]
   ).filter(
     (p) => p !== primaryParam && supports(p) && isPresent(sensor[p]),
   );
@@ -535,8 +539,8 @@ const TREND_MIN_DELTA: Record<ParamKey, number> = {
   hum: 1,
   co2: 20,
   voc: 5,
-  // Presence trend compares hourly PIR counts: "more active than
-  // before" takes a noticeable jump to qualify.
+  sound: 2,
+  light: 20,
   pir: 3,
 };
 
@@ -638,7 +642,7 @@ export default function IndeklimaSensorsScreen() {
   // sensor type publishes the params it reports); if that's still
   // loading we fall back to "all" so the picker stays responsive.
   const availableParams = useMemo<Set<ParamKey>>(() => {
-    const all: ParamKey[] = ['temp', 'hum', 'co2', 'voc', 'pir'];
+    const all: ParamKey[] = ['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'];
     if (typeMap.size === 0) return new Set(all);
     const found = new Set<ParamKey>();
     for (const s of locationFiltered) {
@@ -674,7 +678,7 @@ export default function IndeklimaSensorsScreen() {
   useEffect(() => {
     if (availableParams.size === 0) return;
     if (availableParams.has(primaryParam)) return;
-    const first = (['temp', 'hum', 'co2', 'voc', 'pir'] as const).find((p) =>
+    const first = (['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'] as const).find((p) =>
       availableParams.has(p),
     );
     if (first) setPrimaryParam(first);

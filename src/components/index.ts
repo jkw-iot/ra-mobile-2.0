@@ -11,6 +11,8 @@ export { ErrorState } from './ErrorState';
 export type { ErrorStateProps, ErrorStateAction } from './ErrorState';
 export { SegmentedControl } from './SegmentedControl';
 export { ConfirmModal } from './ConfirmModal';
+export { InfoSheet, StatusBar } from './InfoSheet';
+export type { InfoSheetProps, StatusBarZone } from './InfoSheet';
 export { StatusDot } from './StatusDot';
 export { HeroBackButton } from './HeroBackButton';
 export type { HeroBackButtonProps } from './HeroBackButton';

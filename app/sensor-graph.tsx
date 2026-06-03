@@ -58,7 +58,7 @@ import { haptic } from '@/lib/haptics';
 import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 import { useTenantTime } from '@/hooks/useTenantTime';
 
-const VALID_PARAMS: readonly Param[] = ['temp', 'hum', 'co2', 'voc', 'pir'] as const;
+const VALID_PARAMS: readonly Param[] = ['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'] as const;
 const VALID_PERIODS: readonly DetailPeriod[] = [
   'day',
   'week',

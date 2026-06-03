@@ -71,6 +71,8 @@ const PARAM_ORDER_INTERNAL: readonly ParamKey[] = [
   'hum',
   'co2',
   'voc',
+  'sound',
+  'light',
   'pir',
 ];
 

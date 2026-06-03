@@ -90,6 +90,7 @@ const ICON_MAP: Record<string, MciName> = {
   'droplet-fill': 'water',
   'droplet-half': 'water-percent',
   'water-alert': 'water-alert',
+  'volume-up': 'volume-high',
   'volume-mute': 'volume-mute',
   'volume-off': 'volume-off',
   'mic-mute': 'microphone-off',
@@ -125,6 +126,7 @@ const ICON_MAP: Record<string, MciName> = {
   // Presence (PIR) — motion-sensor glyph. Communicates "presence
   // detection" far more precisely than a person silhouette.
   'motion-sensor': 'motion-sensor',
+  'brightness-high': 'brightness-7',
   'sun': 'weather-sunny',
   'moon': 'weather-night',
   'broadcast': 'broadcast',
@@ -193,7 +195,7 @@ const ICON_MAP: Record<string, MciName> = {
   'qr-code': 'qrcode',
   'camera': 'camera-outline',
 
-  // ── Scenario icons (used by ScenarioBadge / ScenarioDetailSheet)
+  // ── Scenario icons (used by SensorInfoSheet)
   // These mirror the Bootstrap-Icons names assigned in the web's
   // thresholdService.SCENARIOS metadata; each maps to the closest
   // MaterialCommunityIcons glyph.
