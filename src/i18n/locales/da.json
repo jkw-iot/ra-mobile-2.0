@@ -163,15 +163,18 @@
         "label": "Batteri",
         "level": {
           "empty": "Tom",
-          "low": "Lavt",
-          "medium": "Ok",
+          "low": "Meget lavt",
+          "medium": "Lavt",
           "high": "Godt"
         },
         "explain": {
           "empty": "Batteriet er næsten tomt — sensoren bør udskiftes snart, ellers risikerer du at miste data.",
-          "low": "Batteriniveauet er lavt — overvej at planlægge udskiftning inden for kort tid.",
+          "low": "Batteriniveauet er meget lavt — planlæg udskiftning inden for kort tid.",
           "medium": "Batteriniveauet er faldende — planlæg udskiftning snarest.",
-          "high": "Batteriet er fuldt opladet og klar til mange måneders drift."
+          "high": "Batteriet er fuldt opladet og klar til mange måneders drift.",
+          "empty_no_replace": "Batteriet er næsten tomt. Denne sensortype har et fast batteri der ikke kan skiftes — sensoren skal udskiftes.",
+          "low_no_replace": "Batteriniveauet er meget lavt. Denne sensortype har et fast batteri der ikke kan skiftes — planlæg udskiftning af sensoren.",
+          "medium_no_replace": "Batteriniveauet er faldende. Denne sensortype har et fast batteri der ikke kan skiftes — planlæg udskiftning af sensoren i god tid."
         },
         "raw_label": "Niveau",
         "rssi_label": "Signal"

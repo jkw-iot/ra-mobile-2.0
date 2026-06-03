@@ -163,15 +163,18 @@
         "label": "Batterie",
         "level": {
           "empty": "Leer",
-          "low": "Niedrig",
-          "medium": "Ok",
+          "low": "Sehr niedrig",
+          "medium": "Niedrig",
           "high": "Gut"
         },
         "explain": {
           "empty": "Die Batterie ist fast leer — der Sensor sollte bald getauscht werden, sonst gehen Daten verloren.",
-          "low": "Der Batteriestand ist niedrig — planen Sie demnächst einen Austausch ein.",
+          "low": "Der Batteriestand ist sehr niedrig — planen Sie zeitnah einen Austausch ein.",
           "medium": "Der Batteriestand sinkt — planen Sie baldmöglichst einen Austausch ein.",
-          "high": "Die Batterie ist voll geladen und für viele Monate Betrieb bereit."
+          "high": "Die Batterie ist voll geladen und für viele Monate Betrieb bereit.",
+          "empty_no_replace": "Die Batterie ist fast leer. Dieser Sensortyp hat eine fest verbaute Batterie, die nicht gewechselt werden kann — der Sensor muss ersetzt werden.",
+          "low_no_replace": "Der Batteriestand ist sehr niedrig. Dieser Sensortyp hat eine fest verbaute Batterie, die nicht gewechselt werden kann — planen Sie den Austausch des Sensors.",
+          "medium_no_replace": "Der Batteriestand sinkt. Dieser Sensortyp hat eine fest verbaute Batterie, die nicht gewechselt werden kann — planen Sie den Austausch des Sensors rechtzeitig."
         },
         "raw_label": "Stand",
         "rssi_label": "Signal"

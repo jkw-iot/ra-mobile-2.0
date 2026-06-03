@@ -163,15 +163,18 @@
         "label": "Battery",
         "level": {
           "empty": "Empty",
-          "low": "Low",
-          "medium": "Ok",
+          "low": "Very low",
+          "medium": "Low",
           "high": "Good"
         },
         "explain": {
           "empty": "The battery is almost empty — replace the sensor soon to avoid missing data.",
-          "low": "The battery level is low — consider scheduling a replacement.",
+          "low": "The battery level is very low — schedule a replacement soon.",
           "medium": "The battery level is declining — plan a replacement as soon as possible.",
-          "high": "The battery is fully charged and ready for many months of operation."
+          "high": "The battery is fully charged and ready for many months of operation.",
+          "empty_no_replace": "The battery is almost empty. This sensor type has a built-in battery that cannot be replaced — the sensor needs to be replaced.",
+          "low_no_replace": "The battery level is very low. This sensor type has a built-in battery that cannot be replaced — plan to replace the sensor.",
+          "medium_no_replace": "The battery level is declining. This sensor type has a built-in battery that cannot be replaced — plan to replace the sensor in due time."
         },
         "raw_label": "Level",
         "rssi_label": "Signal"

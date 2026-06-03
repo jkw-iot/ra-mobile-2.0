@@ -144,6 +144,12 @@ function batteryLevel(raw: number): 0 | 1 | 2 | 3 {
   return 1;
 }
 
+const NON_REPLACEABLE_BATTERY_TYPES: ReadonlySet<string> = new Set([
+  'air-temperature',
+  'space-desk',
+  'space-button',
+]);
+
 type BatteryKey = 'empty' | 'low' | 'medium' | 'high';
 const BATTERY_META: Record<0 | 1 | 2 | 3, { icon: string; tone: string; key: BatteryKey }> = {
   0: { icon: 'battery-empty',  tone: colors.statusBad,  key: 'empty' },
@@ -755,12 +761,17 @@ export default function SensorDetailScreen() {
       <SensorInfoSheet
         open={infoSheetOpen}
         onClose={() => setInfoSheetOpen(false)}
+        sensorName={sensor.name}
         scenario={effectiveScenario.data ?? null}
         availableParams={availableParams}
         batteryIcon={batMeta.icon}
         batteryTone={batMeta.tone}
         batteryLabel={batLabel}
-        batteryExplainKey={`indeklima.sensor_detail.battery.explain.${batMeta.key}`}
+        batteryExplainKey={
+          batMeta.key !== 'high' && sensor.sensorType && NON_REPLACEABLE_BATTERY_TYPES.has(sensor.sensorType)
+            ? `indeklima.sensor_detail.battery.explain.${batMeta.key}_no_replace`
+            : `indeklima.sensor_detail.battery.explain.${batMeta.key}`
+        }
         batteryRaw={rawBattery}
         batteryDisplay={batteryDisplay}
         batteryScaleLabel={batteryScaleLabel}

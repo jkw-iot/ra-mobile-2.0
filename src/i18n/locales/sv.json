@@ -163,15 +163,18 @@
         "label": "Batteri",
         "level": {
           "empty": "Tomt",
-          "low": "Lågt",
-          "medium": "Ok",
+          "low": "Mycket lågt",
+          "medium": "Lågt",
           "high": "Bra"
         },
         "explain": {
           "empty": "Batteriet är nästan tomt — sensorn bör bytas snart, annars riskerar du att förlora data.",
-          "low": "Batterinivån är låg — planera ett byte inom kort.",
+          "low": "Batterinivån är mycket låg — planera ett byte inom kort.",
           "medium": "Batterinivån sjunker — planera ett byte snarast.",
-          "high": "Batteriet är fulladdat och redo för många månaders drift."
+          "high": "Batteriet är fulladdat och redo för många månaders drift.",
+          "empty_no_replace": "Batteriet är nästan tomt. Denna sensortyp har ett fast batteri som inte kan bytas — sensorn måste ersättas.",
+          "low_no_replace": "Batterinivån är mycket låg. Denna sensortyp har ett fast batteri som inte kan bytas — planera att ersätta sensorn.",
+          "medium_no_replace": "Batterinivån sjunker. Denna sensortyp har ett fast batteri som inte kan bytas — planera att ersätta sensorn i god tid."
         },
         "raw_label": "Nivå",
         "rssi_label": "Signal"

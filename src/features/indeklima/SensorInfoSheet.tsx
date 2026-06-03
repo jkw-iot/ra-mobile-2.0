@@ -28,6 +28,8 @@ interface SensorInfoSheetProps {
   open: boolean;
   onClose: () => void;
 
+  sensorName: string;
+
   scenario: EffectiveScenario | null;
   availableParams: readonly Param[];
 
@@ -71,7 +73,7 @@ function Divider() {
       style={{
         height: 1,
         backgroundColor: colors.gray[200],
-        marginVertical: spacing.sm,
+        marginVertical: spacing.lg,
       }}
     />
   );
@@ -82,6 +84,7 @@ function Divider() {
 export function SensorInfoSheet({
   open,
   onClose,
+  sensorName,
   scenario,
   availableParams,
   batteryIcon,
@@ -154,10 +157,32 @@ export function SensorInfoSheet({
             showsVerticalScrollIndicator
             contentContainerStyle={{ gap: spacing.xs }}
           >
-            {/* ── Sheet title ─────────────────────────── */}
-            <Text style={[type.pageTitle, { fontSize: 18, marginBottom: spacing.xs }]}>
-              {t('indeklima.sensor_detail.sensor_info_title')}
-            </Text>
+            {/* ── Sheet title + close button ────────────── */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+              <Text style={[type.pageTitle, { fontSize: 18, flex: 1 }]} numberOfLines={2}>
+                {sensorName}
+              </Text>
+              <Pressable
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
+                hitSlop={8}
+                style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+              >
+                <View
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: colors.gray[100],
+                  }}
+                >
+                  <Icon name="x" color={colors.gray[600]} size={16} />
+                </View>
+              </Pressable>
+            </View>
 
             {/* ── Scenario section (conditional) ──────── */}
             {scenario ? (
