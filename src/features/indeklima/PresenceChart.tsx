@@ -45,6 +45,8 @@ import { colors, radius, type } from '@/theme';
 import { haptic } from '@/lib/haptics';
 import type { LinePoint } from '@/features/indeklima/LineChart';
 
+type TextAnchor = 'start' | 'middle' | 'end';
+
 export interface PresenceChartProps {
   points: readonly LinePoint[];
   width: number;
@@ -201,24 +203,25 @@ export function PresenceChart({
 
   // ── Touch handling (sticky crosshair tooltip) ─────────────
   const [activeTs, setActiveTs] = useState<number | null>(null);
+  const prevStateRef = useRef<boolean | null>(null);
 
-  // Reset whenever the underlying series changes so a stale
-  // timestamp doesn't anchor the tooltip to a window the user
-  // navigated away from.
   useEffect(() => {
     setActiveTs(null);
+    prevStateRef.current = null;
   }, [points, fromTs, toTs]);
 
-  // PanResponder is created once (useRef) so RN doesn't churn
-  // gesture handlers on every render. We route the touch through
-  // a ref so the handler always sees the latest fromTs/toTs/plotW
-  // (which can change as the user navigates periods or rotates).
   const handleTouchRef = useRef<(localX: number) => void>(() => {});
   handleTouchRef.current = (localX: number) => {
     if (plotW <= 0) return;
     const ratio = (localX - padLeft) / plotW;
     const t = fromTs + ratio * tSpan;
     const clamped = Math.max(fromTs, Math.min(toTs, t));
+    const st = stateAt(sorted, clamped);
+    const occ = st?.occupied ?? null;
+    if (prevStateRef.current !== occ) {
+      haptic.select();
+      prevStateRef.current = occ;
+    }
     setActiveTs(clamped);
   };
 
@@ -244,57 +247,62 @@ export function PresenceChart({
 
   return (
     <View>
-      {/* Tooltip — sits absolutely above the SVG, centred. */}
-      {activeTs != null ? (
-        <View
-          style={{
-            position: 'absolute',
-            top: -2,
-            left: 0,
-            right: 0,
-            alignItems: 'center',
-            zIndex: 10,
-          }}
-          pointerEvents="none"
-        >
+      {/* Floating tooltip — follows the active X position */}
+      {activeTs != null ? (() => {
+        const tipWidth = 110;
+        const tipX = toX(activeTs);
+        const tipLeft = Math.max(4, Math.min(tipX - tipWidth / 2, width - tipWidth - 4));
+        return (
           <View
             style={{
-              backgroundColor: colors.navy,
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: radius.md,
+              position: 'absolute',
+              top: -2,
+              left: tipLeft,
+              width: tipWidth,
+              alignItems: 'center',
+              zIndex: 10,
             }}
+            pointerEvents="none"
           >
-            <Text
+            <View
               style={{
-                color: activeState
+                backgroundColor: colors.navy,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: radius.md,
+              }}
+            >
+              <Text
+                style={{
+                  color: activeState
+                    ? activeState.occupied
+                      ? colors.statusBad
+                      : colors.statusGood
+                    : colors.white,
+                  fontSize: 12,
+                  fontWeight: '700',
+                  textAlign: 'center',
+                }}
+              >
+                {activeState
                   ? activeState.occupied
-                    ? colors.statusBad
-                    : colors.statusGood
-                  : colors.white,
-                fontSize: 12,
-                fontWeight: '700',
-                textAlign: 'center',
-              }}
-            >
-              {activeState
-                ? activeState.occupied
-                  ? occupiedLabel
-                  : vacantLabel
-                : '—'}
-            </Text>
-            <Text
-              style={{
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: 10,
-                textAlign: 'center',
-              }}
-            >
-              {fmtDateTime(activeTs)}
-            </Text>
+                    ? occupiedLabel
+                    : vacantLabel
+                  : '—'}
+              </Text>
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: 10,
+                  textAlign: 'center',
+                }}
+              >
+                {fmtDateTime(activeTs)}
+              </Text>
+            </View>
           </View>
-        </View>
-      ) : null}
+        );
+      })() : null}
 
       <View {...panResponder.panHandlers}>
         <Svg width={width} height={height}>
@@ -324,15 +332,31 @@ export function PresenceChart({
             );
           })}
 
-          {/* Row gridlines. */}
+          {/* Vertical gridlines */}
+          {tickValues.map((t, i) => {
+            if (i === 0 || i === TICK_COUNT - 1) return null;
+            const x = toX(t);
+            return (
+              <Line
+                key={`vgrid-${i}`}
+                x1={x} x2={x}
+                y1={padTop} y2={padTop + plotH}
+                stroke={colors.gray[200]} strokeWidth={0.5}
+                strokeOpacity={0.35}
+                strokeDasharray="2,4"
+              />
+            );
+          })}
+
+          {/* Row gridlines */}
           <Line
             x1={padLeft}
             x2={padLeft + plotW}
             y1={yOccupied}
             y2={yOccupied}
             stroke={colors.gray[300]}
-            strokeWidth={1}
-            strokeOpacity={0.5}
+            strokeWidth={0.5}
+            strokeOpacity={0.4}
             strokeDasharray="2,3"
           />
           <Line
@@ -341,8 +365,8 @@ export function PresenceChart({
             y1={yVacant}
             y2={yVacant}
             stroke={colors.gray[300]}
-            strokeWidth={1}
-            strokeOpacity={0.5}
+            strokeWidth={0.5}
+            strokeOpacity={0.4}
             strokeDasharray="2,3"
           />
 
@@ -385,7 +409,7 @@ export function PresenceChart({
           {tickValues.map((t, i) => {
             // Anchor edge labels so they don't clip past the plot
             // area; centre everything in between.
-            const anchor =
+            const anchor: TextAnchor =
               i === 0 ? 'start' : i === TICK_COUNT - 1 ? 'end' : 'middle';
             return (
               <SvgText

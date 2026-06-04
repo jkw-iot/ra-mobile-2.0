@@ -53,6 +53,7 @@ import {
   useSensorHistoryHourly,
   useSensorThresholds,
   useSensorTypes,
+  useMoldZones,
   useEffectiveScenario,
   buildTypeParamsMap,
   sensorSupports,
@@ -64,6 +65,7 @@ import {
   useOutdoorAnchor,
 } from '@/features/indeklima/OutdoorWeatherCard';
 import { SensorInfoSheet } from '@/features/indeklima/SensorInfoSheet';
+import { VttScaleCard } from '@/features/indeklima/VttScaleCard';
 import { findScenarioById } from '@/features/indeklima/scenarios';
 import {
   normalizeThresholds,
@@ -88,7 +90,7 @@ import { useDetailPrefsStore, type DetailPeriod } from '@/stores/detailPrefsStor
 import { useTenantTime } from '@/hooks/useTenantTime';
 import type { TenantTime } from '@/lib/datetime';
 
-type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'sound' | 'light' | 'pir';
+type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'sound' | 'light' | 'pir' | 'vtt';
 
 function isPresent(v: number | string | undefined): v is number | string {
   if (v == null || v === '-' || v === '') return false;
@@ -213,7 +215,7 @@ export default function SensorDetailScreen() {
   // poison `param` state.
   const initialParamHint = useMemo<Param | null>(() => {
     const v = typeof paramParam === 'string' ? paramParam : null;
-    if (v === 'temp' || v === 'hum' || v === 'co2' || v === 'voc' || v === 'sound' || v === 'light' || v === 'pir') {
+    if (v === 'temp' || v === 'hum' || v === 'co2' || v === 'voc' || v === 'sound' || v === 'light' || v === 'pir' || v === 'vtt') {
       return v;
     }
     return null;
@@ -239,6 +241,7 @@ export default function SensorDetailScreen() {
 
   const thresholdsQuery = useSensorThresholds(id);
   const sensorTypesQuery = useSensorTypes();
+  const { moldIndexMap } = useMoldZones();
   const typeMap = useMemo(
     () => buildTypeParamsMap(sensorTypesQuery.data),
     [sensorTypesQuery.data],
@@ -256,17 +259,19 @@ export default function SensorDetailScreen() {
     [dateRange.from, dateRange.to, tt.tz],
   );
 
-  const raw = useSensorHistoryRaw(useRaw ? id : null, dateRange.from);
-  const hourly = useSensorHistoryHourly(!useRaw ? id : null, dateRange.from, dateRange.to);
+  const activeParam: Param = param ?? 'temp';
+  const isVttParam = activeParam === 'vtt';
+
+  const raw = useSensorHistoryRaw(useRaw && !isVttParam ? id : null, dateRange.from);
+  const hourly = useSensorHistoryHourly(!useRaw && !isVttParam ? id : null, dateRange.from, dateRange.to);
 
   const historyData = useRaw ? raw.data : hourly.data;
   const historyLoading = useRaw ? raw.isLoading : hourly.isLoading;
   const historyError = useRaw ? raw.error : hourly.error;
 
-  const activeParam: Param = param ?? 'temp';
   const points = useMemo(
-    () => historyToPoints(historyData, activeParam, tt.tz),
-    [historyData, activeParam, tt.tz],
+    () => isVttParam ? [] : historyToPoints(historyData, activeParam, tt.tz),
+    [historyData, activeParam, tt.tz, isVttParam],
   );
   const normalizedThresholds = useMemo(
     () => normalizeThresholds(thresholdsQuery.data),
@@ -278,14 +283,22 @@ export default function SensorDetailScreen() {
   );
 
   // Which params does this sensor expose?
+  const sensorMoldZone = useMemo(() => {
+    if (!sensor) return undefined;
+    return moldIndexMap.get(String(sensor.id));
+  }, [sensor, moldIndexMap]);
+
   const availableParams = useMemo<Param[]>(() => {
     if (!sensor) return [];
-    const all: Param[] = ['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'];
-    return all.filter((p) => {
+    type SensorParam = Exclude<Param, 'vtt'>;
+    const all: SensorParam[] = ['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'];
+    const result: Param[] = all.filter((p) => {
       if (!sensorSupports(sensor.sensorType, p, typeMap)) return false;
       return isPresent(sensor[p]);
     });
-  }, [sensor, typeMap]);
+    if (sensorMoldZone) result.push('vtt');
+    return result;
+  }, [sensor, typeMap, sensorMoldZone]);
 
   // Default to the first available param the moment we have one.
   useEffect(() => {
@@ -530,30 +543,44 @@ export default function SensorDetailScreen() {
           // takes the next available slot, including the trailing
           // spacer when the param count is odd.
           const tiles: ReactNode[] = availableParams.map((p) => {
-            // Presence shows a label ("Optaget"/"Ledig") rather
-            // than a numeric reading.
+            if (p === 'vtt' && sensorMoldZone) {
+              const vttValue = sensorMoldZone.mouldIndex.toFixed(1);
+              const vttColor =
+                sensorMoldZone.status === 'visual_growth' ? colors.statusBad
+                : sensorMoldZone.status === 'microscopic' ? colors.statusWarn
+                : colors.statusGood;
+              return (
+                <KpiTile
+                  key={p}
+                  label={t('indeklima.sensor_detail.params.vtt')}
+                  value={vttValue}
+                  unit="M"
+                  icon={paramIcon(p)}
+                  iconColor={paramColor(p)}
+                  valueColor={vttColor}
+                  active={activeParam === p}
+                  onPress={() => setParam(p)}
+                />
+              );
+            }
+            const sp = p as Exclude<Param, 'vtt'>;
             const value =
-              p === 'pir'
+              sp === 'pir'
                 ? (() => {
-                    const n = toNumber(sensor[p]);
+                    const n = toNumber(sensor[sp]);
                     if (n == null) return '—';
                     return n > 0
                       ? t('indeklima.sensors.presence.occupied')
                       : t('indeklima.sensors.presence.vacant');
                   })()
-                : fmtNum(sensor[p], p === 'temp' ? 1 : 0);
-            // Threshold tint — mirrors the chart zone logic so
-            // the tile value colour matches the graph bands.
-            // Presence is binary, and params without configured
-            // thresholds fall back to the default text colour
-            // (no green/yellow/red would be misleading).
+                : fmtNum(sensor[sp], sp === 'temp' ? 1 : 0);
             const valueColor = ((): string | undefined => {
-              if (p === 'pir') return undefined;
-              if (!hasThresholds(normalizedThresholds, p)) return undefined;
+              if (sp === 'pir') return undefined;
+              if (!hasThresholds(normalizedThresholds, sp)) return undefined;
               const zone: ThresholdZone = zoneForValue(
                 normalizedThresholds,
-                p,
-                toNumber(sensor[p]),
+                sp,
+                toNumber(sensor[sp]),
               );
               if (zone === 'red') return colors.statusBad;
               if (zone === 'yellow') return colors.statusWarn;
@@ -597,7 +624,7 @@ export default function SensorDetailScreen() {
             title={t('indeklima.sensor_detail.history')}
             icon="graph-up"
             padding={spacing.sm}
-            trailing={
+            trailing={!isVttParam ? (
               <Pressable
                 onPress={() => {
                   haptic.light();
@@ -623,71 +650,74 @@ export default function SensorDetailScreen() {
               >
                 <Icon name="fullscreen" color={colors.gray[500]} size={30} />
               </Pressable>
-            }
+            ) : undefined}
           >
             <View style={{ gap: spacing.sm }}>
-              <SegmentedControl
-                value={period}
-                onChange={(p) => {
-                  haptic.select();
-                  setPeriodLocal(p);
-                  // Reset anchor when switching periods so we jump back to "now".
-                  setAnchor(startOfDay(new Date()));
-                }}
-                options={[
-                  { id: 'day',   label: t('indeklima.sensor_detail.period.day') },
-                  { id: 'week',  label: t('indeklima.sensor_detail.period.week') },
-                  { id: 'month', label: t('indeklima.sensor_detail.period.month') },
-                  { id: 'quarter', label: t('indeklima.sensor_detail.period.quarter') },
-                ]}
-                ariaLabel={t('indeklima.sensor_detail.history')}
-              />
+              {!isVttParam ? (
+                <>
+                  <SegmentedControl
+                    value={period}
+                    onChange={(p) => {
+                      haptic.select();
+                      setPeriodLocal(p);
+                      setAnchor(startOfDay(new Date()));
+                    }}
+                    options={[
+                      { id: 'day',   label: t('indeklima.sensor_detail.period.day') },
+                      { id: 'week',  label: t('indeklima.sensor_detail.period.week') },
+                      { id: 'month', label: t('indeklima.sensor_detail.period.month') },
+                      { id: 'quarter', label: t('indeklima.sensor_detail.period.quarter') },
+                    ]}
+                    ariaLabel={t('indeklima.sensor_detail.history')}
+                  />
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: 4,
+                    }}
+                  >
+                    <ChartNavButton
+                      icon="chevron-left"
+                      label={t('indeklima.sensor_detail.prev_period')}
+                      onPress={() => {
+                        haptic.light();
+                        setAnchor((a) => stepAnchor(period, a, -1));
+                      }}
+                    />
+                    <Text
+                      style={{
+                        flex: 1,
+                        textAlign: 'center',
+                        fontSize: 13,
+                        fontWeight: '700',
+                        color: colors.brandDark,
+                        letterSpacing: -0.1,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {rangeLabel}
+                    </Text>
+                    <ChartNavButton
+                      icon="chevron-right"
+                      label={t('indeklima.sensor_detail.next_period')}
+                      disabled={!canGoNext}
+                      onPress={() => {
+                        if (!canGoNext) return;
+                        haptic.light();
+                        const next = stepAnchor(period, anchor, +1);
+                        const todayStart = startOfDay(new Date());
+                        setAnchor(isAfter(next, todayStart) ? todayStart : next);
+                      }}
+                    />
+                  </View>
+                </>
+              ) : null}
 
-              {/* Prev / range-label / next */}
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingVertical: 4,
-                }}
-              >
-                <ChartNavButton
-                  icon="chevron-left"
-                  label={t('indeklima.sensor_detail.prev_period')}
-                  onPress={() => {
-                    haptic.light();
-                    setAnchor((a) => stepAnchor(period, a, -1));
-                  }}
-                />
-                <Text
-                  style={{
-                    flex: 1,
-                    textAlign: 'center',
-                    fontSize: 13,
-                    fontWeight: '700',
-                    color: colors.brandDark,
-                    letterSpacing: -0.1,
-                  }}
-                  numberOfLines={1}
-                >
-                  {rangeLabel}
-                </Text>
-                <ChartNavButton
-                  icon="chevron-right"
-                  label={t('indeklima.sensor_detail.next_period')}
-                  disabled={!canGoNext}
-                  onPress={() => {
-                    if (!canGoNext) return;
-                    haptic.light();
-                    const next = stepAnchor(period, anchor, +1);
-                    const todayStart = startOfDay(new Date());
-                    setAnchor(isAfter(next, todayStart) ? todayStart : next);
-                  }}
-                />
-              </View>
-
-              {historyLoading ? (
+              {isVttParam && sensorMoldZone ? (
+                <VttScaleCard value={sensorMoldZone.mouldIndex} />
+              ) : historyLoading ? (
                 <LoadingIndicator inline />
               ) : activeParam === 'pir' ? (
                 points.length < 1 ? (
@@ -737,17 +767,12 @@ export default function SensorDetailScreen() {
                 </View>
               ) : (
                 <LineChart
-                  // Inner chart width = screen width
-                  //   minus ScrollView paddingHorizontal (spacing.xs × 2)
-                  //   minus SectionCard padding (spacing.sm × 2).
-                  // Mirror this any time those paddings change so the
-                  // chart still fills the card without overflow or
-                  // dead space on the right.
                   points={points}
                   width={width - spacing.xs * 2 - spacing.sm * 2}
                   unit={unitFor(activeParam)}
                   stroke={paramColor(activeParam)}
                   zones={chartZones}
+                  smooth={period !== 'day'}
                   formatTimestamp={(ms) => tt.formatMonthDayTime(new Date(ms))}
                   formatAxisLabel={(ms) => tt.formatMonthDayTime(new Date(ms))}
                 />
@@ -886,6 +911,7 @@ function paramIcon(p: Param): string {
     case 'sound': return 'volume-up';
     case 'light': return 'brightness-high';
     case 'pir': return 'person';
+    case 'vtt': return 'bacteria';
   }
 }
 

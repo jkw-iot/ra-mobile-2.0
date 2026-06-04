@@ -11,8 +11,10 @@ import { useMemo } from 'react';
 
 import {
   indeklimaApi,
+  preservationApi,
   sensorTypesApi,
   type IndeklimaLocation,
+  type MoldZone,
   type ScopeThresholds,
   type Sensor,
   type SensorPositions,
@@ -261,6 +263,43 @@ export function useSensorTypes() {
     gcTime: cacheTiers.downsampled.gcTime,
     meta: { cacheTier: 'downsampled' as const },
   });
+}
+
+// ── Mould risk zones (VTT) ─────────────────────────────────
+//
+// Fetches the active VTT mould-risk zones from the preservation
+// API and exposes a Map<sensorId, MoldZone> for client-side merge
+// with indeklima sensor data — same pattern as the web app's
+// SensorList.jsx `moldIndexMap`.
+//
+// Only sensors that an admin has configured for VTT monitoring
+// AND that the hourly cron has computed at least once appear here.
+// The query returns an empty array when the tenant has no VTT
+// config at all, which is the normal state for most tenants.
+
+const MOLD_ZONES_STALE_MS = 5 * 60 * 1000;
+
+export function useMoldZones() {
+  const tenantId = useTenantStore((s) => s.activeTenantId);
+  const query = useQuery({
+    queryKey: ['preservation', 'mold', 'zones', { tenantId }],
+    queryFn: () => preservationApi.getMoldZones(),
+    enabled: tenantId !== null,
+    staleTime: MOLD_ZONES_STALE_MS,
+    gcTime: cacheTiers.snapshot.gcTime,
+    meta: { cacheTier: 'snapshot' as const },
+  });
+
+  const moldIndexMap = useMemo(() => {
+    const m = new Map<string, MoldZone>();
+    if (!query.data || !Array.isArray(query.data)) return m;
+    for (const zone of query.data) {
+      m.set(String(zone.id), zone);
+    }
+    return m;
+  }, [query.data]);
+
+  return { ...query, moldIndexMap };
 }
 
 /**

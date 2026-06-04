@@ -148,6 +148,9 @@ const ICON_MAP: Record<string, MciName> = {
   'signal-3': 'signal-cellular-3',
   'signal-4': 'signal-cellular-3',
   'lightning': 'lightning-bolt',
+  // VTT mould risk — bacteria glyph represents microbial growth.
+  'bacteria': 'bacteria-outline',
+  'bacteria-outline': 'bacteria-outline',
 
   // Charts / data
   'graph-up': 'chart-line',

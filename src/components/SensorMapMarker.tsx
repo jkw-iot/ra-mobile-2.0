@@ -110,6 +110,11 @@ export function SensorMapMarker({
 }: SensorMapMarkerProps) {
   const { t } = useTranslation();
 
+  // VTT has no direct sensor field — handled upstream by the map.
+  if (param === 'vtt') {
+    return <DotFallback silent={silent} />;
+  }
+
   // Presence is binary — render a worded pill.
   if (param === 'pir') {
     if (sensor.pir == null || sensor.pir === '-' || sensor.pir === '') {

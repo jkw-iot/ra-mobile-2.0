@@ -19,7 +19,7 @@
 // ══════════════════════════════════════════════════════════════
 import type { SensorThresholds } from '@/services/api';
 
-export type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'sound' | 'light' | 'pir';
+export type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'sound' | 'light' | 'pir' | 'vtt';
 
 export interface NormalizedBand {
   lower?: number;
@@ -60,6 +60,7 @@ const PARAM_ALIASES: Record<Param, readonly string[]> = {
   sound: ['sound'],
   light: ['light'],
   pir: ['pir', 'presence', 'motion', 'occupancy'],
+  vtt: ['vtt', 'mould', 'mold', 'mouldIndex'],
 };
 
 // Dusty palette at low opacity — subtle enough to read as a

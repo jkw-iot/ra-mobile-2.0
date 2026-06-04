@@ -1,11 +1,40 @@
 import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Icon } from '@/components';
 import { colors } from '@/theme';
 import { haptic } from '@/lib/haptics';
+import { cacheTiers } from '@/lib/queryClient';
 import { useModuleStore } from '@/stores/moduleStore';
+import { useTenantStore } from '@/stores/tenantStore';
+import { sensorTypesApi, indeklimaApi, preservationApi } from '@/services/api';
 import { useTilePreseed } from '@/hooks/useTilePreseed';
+
+function usePrefetchIndeklima() {
+  const queryClient = useQueryClient();
+  const tenantId = useTenantStore((s) => s.activeTenantId);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    queryClient.prefetchQuery({
+      queryKey: ['sensor-types', { tenantId }],
+      queryFn: () => sensorTypesApi.getAll(),
+      staleTime: cacheTiers.downsampled.staleTime,
+    });
+    queryClient.prefetchQuery({
+      queryKey: ['indeklima', 'locations', { tenantId }],
+      queryFn: () => indeklimaApi.getLocations(),
+      staleTime: cacheTiers.snapshot.staleTime,
+    });
+    queryClient.prefetchQuery({
+      queryKey: ['preservation', 'mold', 'zones', { tenantId }],
+      queryFn: () => preservationApi.getMoldZones(),
+      staleTime: 5 * 60 * 1000,
+    });
+  }, [queryClient, tenantId]);
+}
 
 // Fired on every tab icon press. Matches the in-screen
 // pressables (cards, pickers, buttons) which all play
@@ -47,6 +76,7 @@ export default function TabsLayout() {
   const { t } = useTranslation();
   const primary = usePrimaryTabLabel();
   useTilePreseed();
+  usePrefetchIndeklima();
 
   return (
     <Tabs

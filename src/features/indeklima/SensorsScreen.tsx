@@ -39,12 +39,14 @@ import {
   useSensorsFlat,
   useSensorTypes,
   useLocations,
+  useMoldZones,
   buildTypeParamsMap,
   buildLocationOptions,
   sensorMatchesLocation,
   sensorSupports,
   type FlatSensor,
 } from './hooks';
+import type { MoldZone } from '@/services/api';
 import {
   normalizeThresholds,
   zoneForValue,
@@ -263,6 +265,13 @@ interface SensorCardProps {
   thresholds?: NormalizedThresholds;
   primaryParam: ParamKey;
   trend: Trend;
+  moldZone?: MoldZone;
+}
+
+function vttTone(status: MoldZone['status']): 'good' | 'warn' | 'bad' {
+  if (status === 'visual_growth') return 'bad';
+  if (status === 'microscopic') return 'warn';
+  return 'good';
 }
 
 function SensorCard({
@@ -272,6 +281,7 @@ function SensorCard({
   thresholds,
   primaryParam,
   trend,
+  moldZone,
 }: SensorCardProps) {
   const { t } = useTranslation();
   const tt = useTenantTime();
@@ -290,6 +300,7 @@ function SensorCard({
     sound: sensor.soundUnit ?? 'dB',
     light: sensor.lightUnit ?? 'lux',
     pir: '',
+    vtt: 'M',
   };
   const paramIcon: Record<ParamKey, string> = {
     temp: 'thermometer-half',
@@ -299,11 +310,16 @@ function SensorCard({
     sound: 'volume-up',
     light: 'brightness-high',
     pir: 'person',
+    vtt: 'bacteria',
   };
 
   // Presence is binary — show a localised "occupied / vacant"
   // label instead of a number + unit.
   const formatPrimary = (p: ParamKey): string | null => {
+    if (p === 'vtt') {
+      if (!moldZone) return null;
+      return fmtNumberUnit(moldZone.mouldIndex, paramUnit[p], 1);
+    }
     if (!supports(p)) return null;
     if (p === 'pir') {
       if (sensor.pir == null || sensor.pir === '-' || sensor.pir === '') return null;
@@ -322,18 +338,22 @@ function SensorCard({
   // the map marker pill which already colours presence this way.
   const primaryTone =
     primaryValue
-      ? primaryParam === 'pir'
-        ? isPresenceActive(sensor.pir)
-          ? 'bad'
-          : 'good'
-        : valueTone(thresholds, primaryParam, sensor[primaryParam])
+      ? primaryParam === 'vtt'
+        ? moldZone ? vttTone(moldZone.status) : undefined
+        : primaryParam === 'pir'
+          ? isPresenceActive(sensor.pir)
+            ? 'bad'
+            : 'good'
+          : valueTone(thresholds, primaryParam, sensor[primaryParam])
       : undefined;
 
   const secondaryParams: ParamKey[] = (
-    ['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'] as ParamKey[]
-  ).filter(
-    (p) => p !== primaryParam && supports(p) && isPresent(sensor[p]),
-  );
+    ['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir', 'vtt'] as ParamKey[]
+  ).filter((p) => {
+    if (p === primaryParam) return false;
+    if (p === 'vtt') return !!moldZone;
+    return supports(p) && isPresent(sensor[p]);
+  });
 
   const primaryValueColor = primaryTone === 'bad'
     ? colors.statusBad
@@ -452,24 +472,24 @@ function SensorCard({
             >
               {secondaryParams.map((p) => {
                 const val =
-                  p === 'pir'
-                    ? isPresenceActive(sensor.pir)
-                      ? t('indeklima.sensors.presence.occupied')
-                      : t('indeklima.sensors.presence.vacant')
-                    : p === 'temp'
-                      ? fmtNumberUnit(sensor[p], paramUnit[p], 1)
-                      : fmtInt(sensor[p], paramUnit[p]);
+                  p === 'vtt'
+                    ? moldZone ? fmtNumberUnit(moldZone.mouldIndex, 'M', 1) : null
+                    : p === 'pir'
+                      ? isPresenceActive(sensor.pir)
+                        ? t('indeklima.sensors.presence.occupied')
+                        : t('indeklima.sensors.presence.vacant')
+                      : p === 'temp'
+                        ? fmtNumberUnit(sensor[p], paramUnit[p], 1)
+                        : fmtInt(sensor[p], paramUnit[p]);
                 if (!val) return null;
-                // Presence has no thresholds — colour binary by
-                // occupancy (occupied = red, vacant = green) so
-                // the secondary pill reads as fast as a numeric
-                // metric outside its range.
                 const pillTone =
-                  p === 'pir'
-                    ? isPresenceActive(sensor.pir)
-                      ? 'bad'
-                      : 'good'
-                    : valueTone(thresholds, p, sensor[p]);
+                  p === 'vtt'
+                    ? moldZone ? vttTone(moldZone.status) : undefined
+                    : p === 'pir'
+                      ? isPresenceActive(sensor.pir)
+                        ? 'bad'
+                        : 'good'
+                      : valueTone(thresholds, p, sensor[p]);
                 return <MetricPill key={p} value={val} icon={paramIcon[p]} tone={pillTone} />;
               })}
             </View>
@@ -514,7 +534,7 @@ function SensorCard({
               >
                 {primaryValue}
               </Text>
-              {primaryParam !== 'pir' ? (
+              {primaryParam !== 'pir' && primaryParam !== 'vtt' ? (
                 <TrendIndicator
                   trend={trend}
                   label={trendLabel}
@@ -542,6 +562,7 @@ const TREND_MIN_DELTA: Record<ParamKey, number> = {
   sound: 2,
   light: 20,
   pir: 3,
+  vtt: 0.1,
 };
 
 export default function IndeklimaSensorsScreen() {
@@ -558,6 +579,8 @@ export default function IndeklimaSensorsScreen() {
   const { data, isLoading, isError, error, refetch, isRefetching } = useSensorsFlat();
   const sensorTypesQuery = useSensorTypes();
   const locationsQuery = useLocations();
+  const moldZonesQuery = useMoldZones();
+  const { moldIndexMap } = moldZonesQuery;
   const typeMap = useMemo(
     () => buildTypeParamsMap(sensorTypesQuery.data),
     [sensorTypesQuery.data],
@@ -573,10 +596,11 @@ export default function IndeklimaSensorsScreen() {
     refetch();
     locationsQuery.refetch();
     sensorTypesQuery.refetch();
-  }, [refetch, locationsQuery, sensorTypesQuery]);
+    moldZonesQuery.refetch();
+  }, [refetch, locationsQuery, sensorTypesQuery, moldZonesQuery]);
 
   const refreshing =
-    isRefetching || locationsQuery.isRefetching || sensorTypesQuery.isRefetching;
+    isRefetching || locationsQuery.isRefetching || sensorTypesQuery.isRefetching || moldZonesQuery.isRefetching;
 
   const [primaryParam, setPrimaryParam] = useState<ParamKey>('temp');
 
@@ -643,17 +667,20 @@ export default function IndeklimaSensorsScreen() {
   // loading we fall back to "all" so the picker stays responsive.
   const availableParams = useMemo<Set<ParamKey>>(() => {
     const all: ParamKey[] = ['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'];
-    if (typeMap.size === 0) return new Set(all);
+    if (typeMap.size === 0 || locationFiltered.length === 0) return new Set(all);
     const found = new Set<ParamKey>();
     for (const s of locationFiltered) {
       for (const p of all) {
         if (found.has(p)) continue;
         if (sensorSupports(s.sensorType, p, typeMap)) found.add(p);
       }
-      if (found.size === all.length) break;
+      // Check if this sensor has VTT configured
+      if (!found.has('vtt') && moldIndexMap.has(String(s.id))) {
+        found.add('vtt');
+      }
     }
     return found;
-  }, [locationFiltered, typeMap]);
+  }, [locationFiltered, typeMap, moldIndexMap]);
 
   // Final list rendered in the FlatList: location-filtered AND
   // restricted to sensors that actually measure the active
@@ -667,10 +694,13 @@ export default function IndeklimaSensorsScreen() {
   // we briefly show everything rather than flashing an empty
   // list.
   const visible = useMemo(() => {
+    if (primaryParam === 'vtt') {
+      return locationFiltered.filter((s) => moldIndexMap.has(String(s.id)));
+    }
     return locationFiltered.filter((s) =>
       sensorSupports(s.sensorType, primaryParam, typeMap),
     );
-  }, [locationFiltered, primaryParam, typeMap]);
+  }, [locationFiltered, primaryParam, typeMap, moldIndexMap]);
 
   // Keep `primaryParam` valid as the user changes location —
   // jump to the first available one if the currently selected
@@ -678,7 +708,7 @@ export default function IndeklimaSensorsScreen() {
   useEffect(() => {
     if (availableParams.size === 0) return;
     if (availableParams.has(primaryParam)) return;
-    const first = (['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'] as const).find((p) =>
+    const first = (['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir', 'vtt'] as const).find((p) =>
       availableParams.has(p),
     );
     if (first) setPrimaryParam(first);
@@ -826,10 +856,6 @@ export default function IndeklimaSensorsScreen() {
             sensor={item}
             onPress={() => {
               haptic.light();
-              // Carry the currently-selected param into the detail
-              // screen so it opens on the same metric the user was
-              // just analysing on the list (e.g. tap a sensor while
-              // scanning humidity → detail opens on humidity).
               router.push({
                 pathname: '/sensor/[id]',
                 params: { id: String(item.id), param: primaryParam },
@@ -839,6 +865,7 @@ export default function IndeklimaSensorsScreen() {
             thresholds={thresholdMap.get(item.id)}
             primaryParam={primaryParam}
             trend={trendMap.get(item.id) ?? 'unknown'}
+            moldZone={moldIndexMap.get(String(item.id))}
           />
         )}
         refreshControl={

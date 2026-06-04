@@ -150,7 +150,8 @@ export function paramColor(p: Param): string {
     case 'sound': return colors.dusty[5]; // muted sage — matches web PARAM_META
     case 'light': return colors.dusty[6]; // warm taupe — matches web PARAM_META
     case 'pir': return colors.dusty[0]; // brand blue-gray — matches web
-  }
+    case 'vtt': return colors.dusty[5]; // muted sage — organic/mould association
+}
 }
 
 /**
@@ -166,7 +167,67 @@ export function unitForParam(sensor: Sensor | undefined | null, p: Param): strin
   if (p === 'sound') return sensor?.soundUnit ?? 'dB';
   if (p === 'light') return sensor?.lightUnit ?? 'lux';
   if (p === 'pir') return '';
+  if (p === 'vtt') return 'M';
   return sensor?.vocUnit ?? 'ppb';
+}
+
+// ── Monotone cubic spline for smooth chart paths ──────────
+// Fritsch–Carlson method: the curve passes through every data
+// point and never overshoots, which is critical for charts
+// (values stay within the data range).
+
+export function monotoneCubicPath(pts: readonly { x: number; y: number }[]): string {
+  if (pts.length === 0) return '';
+  if (pts.length === 1) return `M${pts[0]!.x},${pts[0]!.y}`;
+  if (pts.length === 2) return `M${pts[0]!.x},${pts[0]!.y}L${pts[1]!.x},${pts[1]!.y}`;
+
+  const n = pts.length;
+  const dx: number[] = [];
+  const dy: number[] = [];
+  const m: number[] = [];
+
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1]!.x - pts[i]!.x);
+    dy.push(pts[i + 1]!.y - pts[i]!.y);
+    m.push(dx[i]! === 0 ? 0 : dy[i]! / dx[i]!);
+  }
+
+  const tangents: number[] = [m[0]!];
+  for (let i = 1; i < n - 1; i++) {
+    if (m[i - 1]! * m[i]! <= 0) {
+      tangents.push(0);
+    } else {
+      tangents.push((m[i - 1]! + m[i]!) / 2);
+    }
+  }
+  tangents.push(m[n - 2]!);
+
+  for (let i = 0; i < n - 1; i++) {
+    if (m[i] === 0) {
+      tangents[i] = 0;
+      tangents[i + 1] = 0;
+    } else {
+      const a = tangents[i]! / m[i]!;
+      const b = tangents[i + 1]! / m[i]!;
+      const s = a * a + b * b;
+      if (s > 9) {
+        const t = 3 / Math.sqrt(s);
+        tangents[i] = t * a * m[i]!;
+        tangents[i + 1] = t * b * m[i]!;
+      }
+    }
+  }
+
+  let d = `M${pts[0]!.x},${pts[0]!.y}`;
+  for (let i = 0; i < n - 1; i++) {
+    const seg = dx[i]! / 3;
+    const cp1x = pts[i]!.x + seg;
+    const cp1y = pts[i]!.y + tangents[i]! * seg;
+    const cp2x = pts[i + 1]!.x - seg;
+    const cp2y = pts[i + 1]!.y - tangents[i + 1]! * seg;
+    d += `C${cp1x},${cp1y},${cp2x},${cp2y},${pts[i + 1]!.x},${pts[i + 1]!.y}`;
+  }
+  return d;
 }
 
 // ── Anchor navigation ─────────────────────────────────────

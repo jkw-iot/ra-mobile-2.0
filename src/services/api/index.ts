@@ -5,6 +5,7 @@ export {
   authApi,
   sensorTypesApi,
   waterApi,
+  preservationApi,
   adminApi,
 } from './typed';
 export type {
@@ -20,6 +21,7 @@ export type {
   SensorTypeDef,
   IndeklimaLocation,
   SensorPositions,
+  MoldZone,
   WaterDashboardResponse,
   WaterDashboardKpi,
   WaterAlarm,

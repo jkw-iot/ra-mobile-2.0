@@ -409,6 +409,7 @@ export default function SensorGraphFullscreen() {
                 unit={unit}
                 stroke={stroke}
                 zones={zones}
+                smooth={period !== 'day'}
                 formatTimestamp={(ms) => tt.formatMonthDayTime(new Date(ms))}
                 formatAxisLabel={(ms) => tt.formatMonthDayTime(new Date(ms))}
               />

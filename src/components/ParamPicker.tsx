@@ -17,7 +17,7 @@ import { Icon } from './Icon';
 import { colors, radius } from '@/theme';
 import { haptic } from '@/lib/haptics';
 
-export type ParamKey = 'temp' | 'hum' | 'co2' | 'voc' | 'sound' | 'light' | 'pir';
+export type ParamKey = 'temp' | 'hum' | 'co2' | 'voc' | 'sound' | 'light' | 'pir' | 'vtt';
 
 export const PARAM_ORDER: readonly ParamKey[] = [
   'temp',
@@ -27,6 +27,7 @@ export const PARAM_ORDER: readonly ParamKey[] = [
   'sound',
   'light',
   'pir',
+  'vtt',
 ];
 
 // `label` powers VoiceOver / TalkBack — it is intentionally not
@@ -41,6 +42,7 @@ export const PARAM_META: Record<ParamKey, { label: string; icon: string }> = {
   sound: { label: 'Lyd', icon: 'volume-up' },
   light: { label: 'Lys', icon: 'brightness-high' },
   pir: { label: 'Tilstedeværelse', icon: 'motion-sensor' },
+  vtt: { label: 'Skimmelrisiko', icon: 'bacteria' },
 };
 
 export interface ParamPickerProps {

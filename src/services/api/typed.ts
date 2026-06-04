@@ -331,6 +331,17 @@ export const waterApi = {
     ),
 } as const;
 
+// ── Preservation (VTT mould risk) ─────────────────────────
+export type MoldZone = JsonResponse<'/api/preservation/mold/zones', 'get'>[number];
+
+export const preservationApi = {
+  /** Active mould-risk zones with latest index, status and trend. */
+  getMoldZones: () =>
+    apiClient.get<JsonResponse<'/api/preservation/mold/zones', 'get'>>(
+      '/preservation/mold/zones',
+    ),
+} as const;
+
 // ── Admin Sensors (registered fleet, all sensor types) ────
 //
 // Used by the water dashboard to count active devices registered
@@ -350,6 +361,7 @@ export const api = {
   auth: authApi,
   sensorTypes: sensorTypesApi,
   water: waterApi,
+  preservation: preservationApi,
   admin: adminApi,
 } as const;
 

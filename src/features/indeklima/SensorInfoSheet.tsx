@@ -136,7 +136,6 @@ export function SensorInfoSheet({
             borderTopLeftRadius: radius.xl,
             borderTopRightRadius: radius.xl,
             paddingTop: spacing.lg,
-            paddingHorizontal: spacing.lg,
             paddingBottom: spacing.xxl,
             maxHeight: '80%',
           }}
@@ -150,12 +149,16 @@ export function SensorInfoSheet({
               borderRadius: 2,
               backgroundColor: colors.gray[200],
               marginBottom: spacing.md,
+              marginHorizontal: spacing.lg,
             }}
           />
 
           <ScrollView
             showsVerticalScrollIndicator
-            contentContainerStyle={{ gap: spacing.xs }}
+            contentContainerStyle={{
+              gap: spacing.xs,
+              paddingHorizontal: spacing.lg,
+            }}
           >
             {/* ── Sheet title + close button ────────────── */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
