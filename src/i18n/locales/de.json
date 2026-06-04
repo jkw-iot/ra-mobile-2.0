@@ -112,6 +112,14 @@
       "presence": {
         "occupied": "Besetzt",
         "vacant": "Frei"
+      },
+      "vtt": {
+        "no_risk": "Kein Risiko",
+        "microscopic": "Mikroskopisch",
+        "visual_growth": "Sichtbares Risiko",
+        "tooltip": "Schimmelindex (VTT)",
+        "scale_title": "VTT Schimmelindex",
+        "scale_subtitle": "Skala 0–6 · Niedriger ist besser"
       }
     },
     "alerts": {
@@ -136,7 +144,8 @@
         "voc": "VOC",
         "sound": "Lautstärke",
         "light": "Licht",
-        "pir": "Anwesenheit"
+        "pir": "Anwesenheit",
+        "vtt": "Schimmelrisiko"
       },
       "param_short": {
         "temp": "Temp",

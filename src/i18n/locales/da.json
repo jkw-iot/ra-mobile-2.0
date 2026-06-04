@@ -112,6 +112,14 @@
       "presence": {
         "occupied": "Optaget",
         "vacant": "Ledig"
+      },
+      "vtt": {
+        "no_risk": "Ingen risiko",
+        "microscopic": "Mikroskopisk",
+        "visual_growth": "Synlig risiko",
+        "tooltip": "Skimmelindeks (VTT)",
+        "scale_title": "VTT Skimmelindeks",
+        "scale_subtitle": "Skala 0–6 · Lavere er bedre"
       }
     },
     "alerts": {
@@ -136,7 +144,8 @@
         "voc": "VOC",
         "sound": "Lyd",
         "light": "Lys",
-        "pir": "Tilstedeværelse"
+        "pir": "Tilstedeværelse",
+        "vtt": "Skimmelrisiko"
       },
       "param_short": {
         "temp": "Temp",

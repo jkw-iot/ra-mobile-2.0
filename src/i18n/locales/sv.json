@@ -112,6 +112,14 @@
       "presence": {
         "occupied": "Upptagen",
         "vacant": "Ledig"
+      },
+      "vtt": {
+        "no_risk": "Ingen risk",
+        "microscopic": "Mikroskopisk",
+        "visual_growth": "Synlig risk",
+        "tooltip": "Mögelindex (VTT)",
+        "scale_title": "VTT Mögelindex",
+        "scale_subtitle": "Skala 0–6 · Lägre är bättre"
       }
     },
     "alerts": {
@@ -136,7 +144,8 @@
         "voc": "VOC",
         "sound": "Ljud",
         "light": "Ljus",
-        "pir": "Närvaro"
+        "pir": "Närvaro",
+        "vtt": "Mögelrisk"
       },
       "param_short": {
         "temp": "Temp",

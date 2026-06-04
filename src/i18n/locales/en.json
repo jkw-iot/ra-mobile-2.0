@@ -112,6 +112,14 @@
       "presence": {
         "occupied": "Occupied",
         "vacant": "Vacant"
+      },
+      "vtt": {
+        "no_risk": "No risk",
+        "microscopic": "Microscopic",
+        "visual_growth": "Visible risk",
+        "tooltip": "Mould index (VTT)",
+        "scale_title": "VTT Mould Index",
+        "scale_subtitle": "Scale 0–6 · Lower is better"
       }
     },
     "alerts": {
@@ -136,7 +144,8 @@
         "voc": "VOC",
         "sound": "Sound",
         "light": "Light",
-        "pir": "Presence"
+        "pir": "Presence",
+        "vtt": "Mould risk"
       },
       "param_short": {
         "temp": "Temp",
