@@ -26,7 +26,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
-import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -90,6 +90,7 @@ import { haptic } from '@/lib/haptics';
 import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 import { useDetailPrefsStore, type DetailPeriod } from '@/stores/detailPrefsStore';
 import { useTenantTime } from '@/hooks/useTenantTime';
+import { useDeviceOrientation } from '@/hooks/useDeviceOrientation';
 import type { TenantTime } from '@/lib/datetime';
 
 type Param = 'temp' | 'hum' | 'co2' | 'voc' | 'sound' | 'light' | 'pir' | 'vtt';
@@ -349,6 +350,31 @@ export default function SensorDetailScreen() {
       queryKey: ['indeklima', 'scope-thresholds'],
     });
   }, [refetch, queryClient]);
+
+  // ── Auto-rotate to fullscreen graph ─────────────────────
+  const devicePosture = useDeviceOrientation(true);
+  const navigatingRef = useRef(false);
+
+  useEffect(() => {
+    if (devicePosture !== 'landscape') return;
+    if (navigatingRef.current) return;
+    if (!sensor || !id) return;
+    if (activeParam === 'vtt') return;
+
+    navigatingRef.current = true;
+    router.push({
+      pathname: '/sensor-graph',
+      params: {
+        id: String(id),
+        param: activeParam,
+        period,
+        anchor: anchor.toISOString(),
+      },
+    });
+
+    const reset = setTimeout(() => { navigatingRef.current = false; }, 1000);
+    return () => clearTimeout(reset);
+  }, [devicePosture, sensor, id, activeParam, period, anchor, router]);
 
   // ── Loading / empty guards ───────────────────────────────
   if (!sensor && sensorWaiting) {

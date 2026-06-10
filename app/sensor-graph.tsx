@@ -14,7 +14,7 @@
 // Once on the page, left/right chevrons step the anchor one
 // period at a time (clamped to today, matching the detail page).
 // ══════════════════════════════════════════════════════════════
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -57,6 +57,7 @@ import type { DetailPeriod } from '@/stores/detailPrefsStore';
 import { haptic } from '@/lib/haptics';
 import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
 import { useTenantTime } from '@/hooks/useTenantTime';
+import { useDeviceOrientation } from '@/hooks/useDeviceOrientation';
 
 const VALID_PARAMS: readonly Param[] = ['temp', 'hum', 'co2', 'voc', 'sound', 'light', 'pir'] as const;
 const VALID_PERIODS: readonly DetailPeriod[] = [
@@ -114,6 +115,18 @@ export default function SensorGraphFullscreen() {
       return isAfter(next, todayStart) ? todayStart : next;
     });
   }, [canGoNext, period]);
+
+  // Auto-return to detail page when tilted back to portrait.
+  // A short mount grace period prevents an immediate back-nav
+  // if the phone hasn't settled into landscape yet.
+  const devicePosture = useDeviceOrientation(true);
+  const mountedAtRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (devicePosture !== 'portrait') return;
+    if (Date.now() - mountedAtRef.current < 800) return;
+    router.back();
+  }, [devicePosture, router]);
 
   const { width: screenW, height: screenH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
