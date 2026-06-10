@@ -16,6 +16,8 @@ import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { useDetailPrefsStore } from '@/stores/detailPrefsStore';
+
 /** How long the app must stay backgrounded before a return resets
  *  navigation to the sensor list. */
 export const RESUME_TO_SENSORS_AFTER_MS = 10 * 60 * 1000; // 10 minutes
@@ -46,6 +48,7 @@ export function useResumeToSensors(enabled: boolean): void {
         backgroundedAt.current = null;
         if (!enabled || since === null) return;
         if (Date.now() - since < RESUME_TO_SENSORS_AFTER_MS) return;
+        useDetailPrefsStore.getState().setLastPeriod('week');
         router.navigate('/(tabs)');
       }
     });
