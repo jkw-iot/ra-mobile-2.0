@@ -19,6 +19,11 @@ function usePrefetchIndeklima() {
   useEffect(() => {
     if (!tenantId) return;
     queryClient.prefetchQuery({
+      queryKey: ['indeklima', 'sensors', { tenantId }],
+      queryFn: () => indeklimaApi.getSensors(),
+      staleTime: cacheTiers.snapshot.staleTime,
+    });
+    queryClient.prefetchQuery({
       queryKey: ['sensor-types', { tenantId }],
       queryFn: () => sensorTypesApi.getAll(),
       staleTime: cacheTiers.downsampled.staleTime,

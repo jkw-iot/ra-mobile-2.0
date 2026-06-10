@@ -17,10 +17,12 @@ import { fontMap } from '@/theme/fonts';
 import { colors, type } from '@/theme';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { AuthProvider, useAuth } from '@/services/auth/AuthProvider';
-import { LoadingIndicator } from '@/components';
+import { LoadingIndicator, OfflineBanner } from '@/components';
 import { useTenantStore } from '@/stores/tenantStore';
 import { ensureTileCacheDir } from '@/lib/tileCache';
 import { useResumeToSensors } from '@/hooks/useResumeToSensors';
+import { useProactiveTokenRefresh } from '@/hooks/useProactiveTokenRefresh';
+import { useScenarioFreshness } from '@/hooks/useScenarioFreshness';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -30,6 +32,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const setActiveTenant = useTenantStore((s) => s.setActiveTenant);
   const segments = useSegments();
   const router = useRouter();
+
+  useProactiveTokenRefresh();
+  useScenarioFreshness();
 
   // After a long absence, return the user to the sensor list (which
   // restores the last-viewed location per tenant). Only armed once
@@ -131,6 +136,7 @@ export default function RootLayout() {
         <QueryProvider>
           <AuthProvider>
             <StatusBar style="dark" />
+            <OfflineBanner />
             <AuthGate>
               <Stack
                 screenOptions={{

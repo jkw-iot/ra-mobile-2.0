@@ -20,8 +20,10 @@
     "empty": "Keine Daten",
     "refresh": "Aktualisieren",
     "offline": "Offline — zwischengespeicherte Daten",
+    "back_online": "Wieder online",
     "coming_soon": "Demnächst verfügbar",
-    "optional": "optional"
+    "optional": "optional",
+    "days": "Tage"
   },
   "layout": {
     "modules": {
@@ -119,7 +121,10 @@
         "visual_growth": "Sichtbares Risiko",
         "tooltip": "Schimmelindex (VTT)",
         "scale_title": "VTT Schimmelindex",
-        "scale_subtitle": "Skala 0–6 · Niedriger ist besser"
+        "scale_subtitle": "Skala 0–6 · Niedriger ist besser",
+        "trend_rising": "Steigend",
+        "trend_falling": "Fallend",
+        "trend_stable": "Stabil"
       }
     },
     "alerts": {
@@ -160,6 +165,8 @@
       "last_update": "Zuletzt aktualisiert",
       "last_measurement": "Letzte Messung",
       "measurement_at": "Gemessen {{when}}",
+      "pir_since_today": "Seit {{time}}",
+      "pir_since_dated": "Seit {{when}}",
       "prev_period": "Vorheriger Zeitraum",
       "next_period": "Nächster Zeitraum",
       "open_fullscreen": "Vollbildansicht öffnen",

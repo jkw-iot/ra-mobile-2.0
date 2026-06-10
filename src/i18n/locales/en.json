@@ -20,8 +20,10 @@
     "empty": "No data",
     "refresh": "Refresh",
     "offline": "Offline — showing cached data",
+    "back_online": "Back online",
     "coming_soon": "Coming soon",
-    "optional": "optional"
+    "optional": "optional",
+    "days": "days"
   },
   "layout": {
     "modules": {
@@ -119,7 +121,10 @@
         "visual_growth": "Visible risk",
         "tooltip": "Mould index (VTT)",
         "scale_title": "VTT Mould Index",
-        "scale_subtitle": "Scale 0–6 · Lower is better"
+        "scale_subtitle": "Scale 0–6 · Lower is better",
+        "trend_rising": "Rising",
+        "trend_falling": "Falling",
+        "trend_stable": "Stable"
       }
     },
     "alerts": {
@@ -160,6 +165,8 @@
       "last_update": "Last update",
       "last_measurement": "Latest reading",
       "measurement_at": "Measured {{when}}",
+      "pir_since_today": "Since {{time}}",
+      "pir_since_dated": "Since {{when}}",
       "prev_period": "Previous period",
       "next_period": "Next period",
       "open_fullscreen": "Open graph fullscreen",

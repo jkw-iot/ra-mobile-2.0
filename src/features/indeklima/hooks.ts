@@ -7,8 +7,17 @@
 // (see src/lib/queryClient.ts).
 // ══════════════════════════════════════════════════════════════
 import { useQuery } from '@tanstack/react-query';
+import { subDays } from 'date-fns';
 import { useMemo } from 'react';
 
+import {
+  findPirStateSinceMs,
+  historyToPoints,
+  pirSinceMsFromPoints,
+  rawHistoryToPirReadings,
+  ymd,
+} from '@/features/indeklima/chartHelpers';
+import { useTenantTime } from '@/hooks/useTenantTime';
 import {
   indeklimaApi,
   preservationApi,
@@ -126,6 +135,74 @@ export function useSensorHistoryRaw(id: number | string | null, date?: string) {
     gcTime: cacheTiers.raw.gcTime,
     meta: { cacheTier: 'raw' as const },
   });
+}
+
+// ── PIR state-change timestamp ────────────────────────────
+//
+// Fetches today's raw history and scans backwards to find the
+// moment the presence state last changed. Falls back to the last
+// 7 days of hourly aggregates when today's raw rows lack PIR data.
+// Returns Unix ms for the first reading in the current state.
+//
+// The raw query key matches `useSensorHistoryRaw` with today's date
+// so the two hooks share a cache entry in day-view.
+export function usePirSince(
+  id: number | string | null,
+  todayYmd: string,
+  currentPir: number | string | undefined,
+): number | null {
+  const tenantId = useTenantStore((s) => s.activeTenantId);
+  const { tz } = useTenantTime();
+  const hasPirReading = currentPir != null && currentPir !== '-' && currentPir !== '';
+
+  const { data: rawToday } = useQuery({
+    queryKey: ['indeklima', 'sensor', id, 'history', 'raw', { date: todayYmd, tenantId }],
+    queryFn: () => indeklimaApi.getSensorHistory(id!, { date: todayYmd, resolution: 'raw' }),
+    enabled: id != null && tenantId != null && hasPirReading,
+    staleTime: cacheTiers.raw.staleTime,
+    gcTime: cacheTiers.raw.gcTime,
+    meta: { cacheTier: 'raw' as const },
+  });
+
+  const rawReadings = useMemo(
+    () => (Array.isArray(rawToday)
+      ? rawHistoryToPirReadings(rawToday as Record<string, unknown>[], tz, todayYmd)
+      : []),
+    [rawToday, tz, todayYmd],
+  );
+
+  const weekFrom = useMemo(() => ymd(subDays(new Date(), 7)), []);
+
+  const { data: hourlyWeek } = useQuery({
+    queryKey: ['indeklima', 'sensor', id, 'history', 'hourly', { from: weekFrom, to: todayYmd, tenantId }],
+    queryFn: () =>
+      indeklimaApi.getSensorHistory(id!, { from: weekFrom, to: todayYmd, resolution: 'hourly' }),
+    enabled: id != null && tenantId != null && hasPirReading,
+    staleTime: cacheTiers.downsampled.staleTime,
+    gcTime: cacheTiers.downsampled.gcTime,
+    meta: { cacheTier: 'downsampled' as const },
+  });
+
+  return useMemo(() => {
+    if (!hasPirReading) return null;
+    const currentOccupied = Number(currentPir) > 0;
+
+    // Hourly — same parsing as PresenceChart / historyToPoints.
+    const sinceHourly = pirSinceMsFromPoints(
+      historyToPoints(hourlyWeek, 'pir', tz),
+      currentOccupied,
+    );
+
+    // Today's raw — wall-clock only (never the lying Unix timestamp).
+    const sinceRaw = findPirStateSinceMs(rawReadings, currentOccupied);
+
+    if (sinceRaw == null) return sinceHourly;
+    if (sinceHourly == null) return sinceRaw;
+
+    // Prefer raw when it refines the same-day transition (sub-hour precision).
+    if (sinceRaw >= sinceHourly) return sinceRaw;
+    return sinceHourly;
+  }, [rawReadings, hourlyWeek, tz, currentPir, hasPirReading]);
 }
 
 // ── Hourly-aggregated history for a date range ────────────
@@ -649,11 +726,22 @@ export function useOutdoorWeather(lat: number | null, lng: number | null) {
 //
 // Returns the saved thresholds + assigned `scenarioId` for a
 // given scope. Backed by `/api/indeklima/thresholds` — the same
-// endpoint the web admin uses. Cached aggressively because
-// thresholds and scenario assignments change rarely.
+// endpoint the web admin uses.
+//
+// Cached at the snapshot tier (1h staleTime) — scenario
+// assignments are admin configuration that can be changed at any
+// time via the web app, so we treat them like locations rather
+// than like historical aggregates.
+//
+// A 5-minute `refetchInterval` keeps the scenario strip on the
+// sensor detail page reasonably fresh while the user is looking
+// at a sensor, without hammering the API (at most 3 scope
+// queries per interval per open detail page).
 //
 // Passing `enabled: false` (e.g. while we don't have a scopeId
 // yet) keeps the query dormant without losing the queryKey.
+const SCOPE_THRESHOLDS_REFETCH_MS = 5 * 60 * 1000;
+
 export function useScopeThresholds(
   scopeType: ThresholdScopeType,
   scopeId: number | string | null | undefined,
@@ -673,9 +761,10 @@ export function useScopeThresholds(
     ],
     queryFn: () => indeklimaApi.getScopeThresholds(scopeType, scopeIdKey),
     enabled,
-    staleTime: cacheTiers.downsampled.staleTime,
-    gcTime: cacheTiers.downsampled.gcTime,
-    meta: { cacheTier: 'downsampled' as const },
+    staleTime: cacheTiers.snapshot.staleTime,
+    gcTime: cacheTiers.snapshot.gcTime,
+    refetchInterval: SCOPE_THRESHOLDS_REFETCH_MS,
+    meta: { cacheTier: 'snapshot' as const },
   });
 }
 

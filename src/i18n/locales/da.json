@@ -20,8 +20,10 @@
     "empty": "Ingen data",
     "refresh": "Opdater",
     "offline": "Offline — viser cachede data",
+    "back_online": "Online igen",
     "coming_soon": "Kommer snart",
-    "optional": "valgfri"
+    "optional": "valgfri",
+    "days": "dage"
   },
   "layout": {
     "modules": {
@@ -119,7 +121,10 @@
         "visual_growth": "Synlig risiko",
         "tooltip": "Skimmelindeks (VTT)",
         "scale_title": "VTT Skimmelindeks",
-        "scale_subtitle": "Skala 0–6 · Lavere er bedre"
+        "scale_subtitle": "Skala 0–6 · Lavere er bedre",
+        "trend_rising": "Stigende",
+        "trend_falling": "Faldende",
+        "trend_stable": "Stabil"
       }
     },
     "alerts": {
@@ -160,6 +165,8 @@
       "last_update": "Sidst opdateret",
       "last_measurement": "Seneste måling",
       "measurement_at": "Målt {{when}}",
+      "pir_since_today": "Siden: kl. {{time}}",
+      "pir_since_dated": "Siden: {{when}}",
       "prev_period": "Forrige periode",
       "next_period": "Næste periode",
       "open_fullscreen": "Åbn graf i fuld skærm",

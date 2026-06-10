@@ -17,9 +17,11 @@ import {
   Pressable,
   RefreshControl,
   FlatList,
+  InteractionManager,
 } from 'react-native';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useIsRestoring, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -534,7 +536,7 @@ function SensorCard({
               >
                 {primaryValue}
               </Text>
-              {primaryParam !== 'pir' && primaryParam !== 'vtt' ? (
+              {primaryParam !== 'pir' ? (
                 <TrendIndicator
                   trend={trend}
                   label={trendLabel}
@@ -576,6 +578,8 @@ export default function IndeklimaSensorsScreen() {
   );
   const setSelectedLocation = useSensorListPrefsStore((s) => s.setSelectedLocation);
 
+  const queryClient = useQueryClient();
+  const isRestoring = useIsRestoring();
   const { data, isLoading, isError, error, refetch, isRefetching } = useSensorsFlat();
   const sensorTypesQuery = useSensorTypes();
   const locationsQuery = useLocations();
@@ -585,6 +589,27 @@ export default function IndeklimaSensorsScreen() {
     () => buildTypeParamsMap(sensorTypesQuery.data),
     [sensorTypesQuery.data],
   );
+
+  // Gate: show spinner until all critical data is ready so the screen
+  // is fully interactive from the first visible frame.
+  const isScreenReady =
+    !isRestoring &&
+    !isLoading &&
+    !sensorTypesQuery.isLoading &&
+    !locationsQuery.isLoading &&
+    !moldZonesQuery.isLoading;
+
+  // Defer secondary batch queries (thresholds + trends) until after
+  // animations/interactions complete to keep the JS thread free for
+  // touch handling during the critical first frames.
+  const [interactionsComplete, setInteractionsComplete] = useState(false);
+  useEffect(() => {
+    if (!isScreenReady) return;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setInteractionsComplete(true);
+    });
+    return () => handle.cancel();
+  }, [isScreenReady]);
 
   // Pull-to-refresh refetches everything that feeds the screen,
   // not just the sensor snapshot. Without including locations the
@@ -597,7 +622,10 @@ export default function IndeklimaSensorsScreen() {
     locationsQuery.refetch();
     sensorTypesQuery.refetch();
     moldZonesQuery.refetch();
-  }, [refetch, locationsQuery, sensorTypesQuery, moldZonesQuery]);
+    queryClient.invalidateQueries({
+      queryKey: ['indeklima', 'scope-thresholds'],
+    });
+  }, [refetch, locationsQuery, sensorTypesQuery, moldZonesQuery, queryClient]);
 
   const refreshing =
     isRefetching || locationsQuery.isRefetching || sensorTypesQuery.isRefetching || moldZonesQuery.isRefetching;
@@ -714,12 +742,13 @@ export default function IndeklimaSensorsScreen() {
     if (first) setPrimaryParam(first);
   }, [availableParams, primaryParam]);
 
-  // Batch threshold queries for visible sensors
+  // Batch threshold queries for visible sensors — deferred until
+  // interactions complete so the screen is responsive first.
   const thresholdQueries = useQueries({
     queries: visible.map((s) => ({
       queryKey: ['indeklima', 'sensor', s.id, 'thresholds', { tenantId: activeTenantId }],
       queryFn: () => indeklimaApi.getSensorThresholds(s.id),
-      enabled: activeTenantId !== null,
+      enabled: interactionsComplete && activeTenantId !== null,
       staleTime: cacheTiers.downsampled.staleTime,
       gcTime: cacheTiers.downsampled.gcTime,
     })),
@@ -745,6 +774,10 @@ export default function IndeklimaSensorsScreen() {
   // hourly-aggregation cache), so this reliably detects whether the
   // metric is rising or falling. Capped at 24 sensors to avoid
   // pathological cases.
+  //
+  // For VTT, trends come pre-computed from the mold zones API
+  // (moldZone.trend) — no history fetch needed.
+  const isVttParam = primaryParam === 'vtt';
   const trendDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const trendCandidates = visible.slice(0, 24);
   const trendQueries = useQueries({
@@ -761,7 +794,7 @@ export default function IndeklimaSensorsScreen() {
           date: trendDate,
           resolution: 'raw',
         }),
-      enabled: activeTenantId !== null,
+      enabled: interactionsComplete && activeTenantId !== null && !isVttParam,
       staleTime: cacheTiers.snapshot.staleTime,
       gcTime: cacheTiers.raw.gcTime,
     })),
@@ -769,6 +802,19 @@ export default function IndeklimaSensorsScreen() {
 
   const trendMap = useMemo(() => {
     const m = new Map<number, Trend>();
+
+    // VTT: use server-computed trend from mold zones API
+    if (isVttParam) {
+      for (const s of visible) {
+        const zone = moldIndexMap.get(String(s.id));
+        if (!zone) { m.set(s.id, 'unknown'); continue; }
+        if (zone.trend === 'rising') m.set(s.id, 'up');
+        else if (zone.trend === 'falling') m.set(s.id, 'down');
+        else m.set(s.id, 'flat');
+      }
+      return m;
+    }
+
     trendCandidates.forEach((s, i) => {
       const data = trendQueries[i]?.data;
       const readings = Array.isArray(data) ? data : undefined;
@@ -792,7 +838,16 @@ export default function IndeklimaSensorsScreen() {
       else m.set(s.id, delta > 0 ? 'up' : 'down');
     });
     return m;
-  }, [trendCandidates, trendQueries, primaryParam]);
+  }, [trendCandidates, trendQueries, primaryParam, isVttParam, visible, moldIndexMap]);
+
+  if (!isScreenReady) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }} edges={['bottom']}>
+        <AppHeader />
+        <LoadingIndicator />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }} edges={['bottom']}>
@@ -805,9 +860,6 @@ export default function IndeklimaSensorsScreen() {
       <View
         style={{
           backgroundColor: colors.navy,
-          // A few pixels of breathing room between the AppHeader's
-          // logo row and the location-picker card; without it the
-          // two visually merge.
           paddingTop: spacing.xs,
         }}
       >
@@ -823,17 +875,12 @@ export default function IndeklimaSensorsScreen() {
           }}
           options={locationSelectOptions}
           placeholder={t('indeklima.sensors.no_locations')}
-          // Tight inset so the picker aligns flush with the
-          // sensor-card column below it, matching the "cards
-          // edge-to-edge" rhythm of the rest of the screen.
           inset={spacing.xs}
         />
 
         <View
           style={{
             paddingHorizontal: spacing.xs,
-            // Matching breathing room between the picker card and
-            // the parameter selector below.
             paddingTop: spacing.xs,
             paddingBottom: spacing.md,
           }}
@@ -845,8 +892,6 @@ export default function IndeklimaSensorsScreen() {
           />
         </View>
       </View>
-
-      {isLoading ? <LoadingIndicator /> : null}
 
       <FlatList
         data={visible}

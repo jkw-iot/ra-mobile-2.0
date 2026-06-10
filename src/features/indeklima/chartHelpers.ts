@@ -85,23 +85,128 @@ function hourlyKey(param: Param): string {
  * any device. The raw `timestamp` is only a last-resort fallback for
  * older payloads that lack the date/time fields.
  */
-function readingEpoch(
-  r: { date?: string; time?: string; timestamp?: number },
+/**
+ * Resolve a reading to epoch ms using only the tenant wall-clock
+ * `{ date, time }` pair. Skips the Unix `timestamp` field entirely
+ * because Legacy timestamps are often local wall time encoded as UTC,
+ * which shifts display by the tenant offset (e.g. +2 h in CEST).
+ */
+export function readingEpochWallClock(
+  r: { date?: string; time?: string },
   tz: string,
+  fallbackDate?: string,
 ): number | null {
-  if (
-    typeof r.date === 'string'
-    && typeof r.time === 'string'
-    && /^\d{4}-\d{2}-\d{2}$/.test(r.date)
-  ) {
-    const timeStr = r.time.length === 5 ? `${r.time}:00` : r.time;
-    const d = parseLegacy(`${r.date}T${timeStr}`, tz);
+  if (typeof r.time !== 'string' || !/^\d{1,2}:\d{2}/.test(r.time)) return null;
+  const dateStr = (typeof r.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.date))
+    ? r.date
+    : fallbackDate;
+  if (!dateStr) return null;
+  const timeStr = r.time.length === 5 ? `${r.time}:00` : r.time;
+  const d = parseLegacy(`${dateStr}T${timeStr}`, tz);
+  return d?.getTime() ?? null;
+}
+
+export function readingEpoch(
+  r: { date?: string; time?: string; timestamp?: number | string },
+  tz: string,
+  fallbackDate?: string,
+): number | null {
+  const wall = readingEpochWallClock(r, tz, fallbackDate);
+  if (wall != null) return wall;
+  const raw = r.timestamp;
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return raw < 1e12 ? raw * 1000 : raw;
+  }
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const n = Number(raw);
+    if (Number.isFinite(n)) return n < 1e12 ? n * 1000 : n;
+    const d = parseLegacy(raw, tz);
     if (d) return d.getTime();
   }
-  if (typeof r.timestamp === 'number' && Number.isFinite(r.timestamp)) {
-    return r.timestamp * 1000;
-  }
   return null;
+}
+
+/** Normalise a history row's PIR field to 0 (vacant) or 1 (occupied). */
+export function getPirValue(reading: Record<string, unknown>): number | null {
+  const v = reading.pir ?? reading.presence ?? reading.motion
+    ?? reading.occupancy ?? reading.PIR;
+  if (v == null || v === '' || v === '-') return null;
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  const s = String(v).toLowerCase();
+  if (s === 'true' || s === '1' || s === 'yes') return 1;
+  if (s === 'false' || s === '0' || s === 'no') return 0;
+  const num = Number(v);
+  if (!Number.isFinite(num)) return null;
+  if (num > 1) return num >= 50 ? 1 : 0;
+  return num > 0 ? 1 : 0;
+}
+
+export interface PirReading {
+  t: number;
+  occupied: boolean;
+}
+
+/** Build chronological PIR readings from a raw history array. */
+export function rawHistoryToPirReadings(
+  data: readonly Record<string, unknown>[] | undefined,
+  tz: string,
+  fallbackDate?: string,
+): PirReading[] {
+  if (!data?.length) return [];
+  const out: PirReading[] = [];
+  for (const row of data) {
+    const val = getPirValue(row);
+    if (val == null) continue;
+    const t = readingEpochWallClock(
+      row as { date?: string; time?: string },
+      tz,
+      fallbackDate,
+    );
+    if (t == null) continue;
+    out.push({ t, occupied: val > 0 });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
+/** Build chronological PIR readings from an hourly history response. */
+export function hourlyHistoryToPirReadings(
+  hist: HistoryResponse | undefined,
+  tz: string,
+): PirReading[] {
+  const points = historyToPoints(hist, 'pir', tz);
+  return points
+    .filter((p): p is LinePoint & { v: number } => p.v != null && Number.isFinite(p.v))
+    .map((p) => ({ t: p.t, occupied: p.v > 0 }))
+    .sort((a, b) => a.t - b.t);
+}
+
+/** Derive the PIR "since" timestamp from chart points (same parsing as PresenceChart). */
+export function pirSinceMsFromPoints(
+  points: readonly LinePoint[],
+  currentOccupied: boolean,
+): number | null {
+  const readings: PirReading[] = points
+    .filter((p): p is LinePoint & { v: number } => p.v != null && Number.isFinite(p.v))
+    .map((p) => ({ t: p.t, occupied: p.v > 0 }));
+  return findPirStateSinceMs(readings, currentOccupied);
+}
+
+/**
+ * Find when the current PIR state began within a set of readings.
+ * Returns Unix ms of the first reading in the current state, or null
+ * when no readings are available.
+ */
+export function findPirStateSinceMs(
+  readings: readonly PirReading[],
+  currentOccupied: boolean,
+): number | null {
+  if (readings.length === 0) return null;
+  for (let i = readings.length - 1; i >= 0; i--) {
+    if (readings[i]!.occupied !== currentOccupied) {
+      return readings[i + 1]?.t ?? null;
+    }
+  }
+  return readings[0]!.t;
 }
 
 /** Convert the two history response shapes (raw | hourly) into chart points. */

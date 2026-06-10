@@ -39,6 +39,16 @@ export interface KpiTileProps {
    * status. Defaults to the dark brand text colour.
    */
   valueColor?: string;
+  /**
+   * Font size for the value text. Defaults to 36. Use a smaller value
+   * (e.g. 24) for tiles that show longer strings like presence labels.
+   */
+  valueFontSize?: number;
+  /**
+   * Optional secondary line shown below the value — e.g. "Siden: 14:32"
+   * for the PIR presence tile. Renders in caption style, centered.
+   */
+  subtitle?: string;
   /** Highlight the tile (thicker brand-accent border + stronger shadow). */
   active?: boolean;
   onPress?: () => void;
@@ -52,6 +62,8 @@ export function KpiTile({
   variant = "default",
   iconColor,
   valueColor,
+  valueFontSize = 36,
+  subtitle,
   active,
   onPress,
 }: KpiTileProps) {
@@ -111,8 +123,8 @@ export function KpiTile({
             adjustsFontSizeToFit
             minimumFontScale={0.7}
             style={{
-              fontSize: 36,
-              lineHeight: 42,
+              fontSize: valueFontSize,
+              lineHeight: valueFontSize * 1.17,
               fontWeight: "700",
               color: resolvedValueColor,
               letterSpacing: -0.8,
@@ -132,6 +144,17 @@ export function KpiTile({
               </Text>
             ) : null}
           </Text>
+          {subtitle ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                type.caption,
+                { textAlign: "center", marginTop: 2, color: isDark ? "rgba(255,255,255,0.6)" : undefined },
+              ]}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
         </View>
       </View>
     </Pressable>

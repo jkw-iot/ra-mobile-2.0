@@ -9,6 +9,7 @@
 import { View, Text, type TextStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { Icon } from '@/components';
 import { colors, radius, spacing } from '@/theme';
 import { fontFamily } from '@/theme/fonts';
 
@@ -41,11 +42,27 @@ function activeIndex(value: number): number {
 
 // ── Component ─────────────────────────────────────────────
 
+export type VttTrend = 'rising' | 'falling' | 'stable';
+
 export interface VttScaleCardProps {
   value: number;
+  trend?: VttTrend;
+  trendDays?: number;
 }
 
-export function VttScaleCard({ value }: VttScaleCardProps) {
+function trendIcon(trend: VttTrend): string {
+  if (trend === 'rising') return 'arrow-up';
+  if (trend === 'falling') return 'arrow-down';
+  return 'dash';
+}
+
+function trendColor(trend: VttTrend): string {
+  if (trend === 'rising') return colors.statusBad;
+  if (trend === 'falling') return colors.statusGood;
+  return colors.gray[400];
+}
+
+export function VttScaleCard({ value, trend, trendDays }: VttScaleCardProps) {
   const { t } = useTranslation();
   const active = activeIndex(value);
   const valColor = statusColor(value);
@@ -89,7 +106,7 @@ export function VttScaleCard({ value }: VttScaleCardProps) {
         </Text>
       </View>
 
-      {/* Large value */}
+      {/* Large value + trend */}
       <View
         style={{
           paddingHorizontal: spacing.lg,
@@ -98,18 +115,46 @@ export function VttScaleCard({ value }: VttScaleCardProps) {
           alignItems: 'center',
         }}
       >
-        <Text
-          style={{
-            fontSize: 38,
-            fontFamily: fontFamily('bold'),
-            fontWeight: '800',
-            color: valColor,
-            fontVariant: ['tabular-nums'],
-            letterSpacing: -0.5,
-          }}
-        >
-          {value.toFixed(2).replace('.', ',')}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text
+            style={{
+              fontSize: 38,
+              fontFamily: fontFamily('bold'),
+              fontWeight: '800',
+              color: valColor,
+              fontVariant: ['tabular-nums'],
+              letterSpacing: -0.5,
+            }}
+          >
+            {value.toFixed(2).replace('.', ',')}
+          </Text>
+          {trend ? (
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Icon name={trendIcon(trend)} color={trendColor(trend)} size={16} />
+            </View>
+          ) : null}
+        </View>
+        {trend && trendDays != null && trendDays > 0 ? (
+          <Text
+            style={{
+              fontSize: 10,
+              color: trendColor(trend),
+              marginTop: 2,
+              fontFamily: fontFamily('semibold'),
+            }}
+          >
+            {t(`indeklima.sensors.vtt.trend_${trend}`)} · {trendDays} {t('common.days')}
+          </Text>
+        ) : null}
       </View>
 
       {/* Scale bar + ticks + legend */}
@@ -139,48 +184,45 @@ export function VttScaleCard({ value }: VttScaleCardProps) {
             })}
           </View>
 
-          {/* Triangle marker below the active segment */}
-          {active >= 0 && (
-            <View style={{ flexDirection: 'row' }}>
-              {VTT_SCALE.map((item, i) => (
+          {/* Triangle marker positioned proportionally to value on 0–6 */}
+          {active >= 0 && (() => {
+            const clamped = Math.max(0, Math.min(6, value));
+            const markerColor = VTT_SCALE[active]?.hex ?? colors.gray[400];
+            return (
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                <View style={{ flex: clamped }} />
                 <View
-                  key={i}
                   style={{
-                    flex: item.max - item.min,
-                    alignItems: 'center',
+                    width: 0,
+                    height: 0,
+                    borderLeftWidth: 5,
+                    borderRightWidth: 5,
+                    borderTopWidth: 6,
+                    borderLeftColor: 'transparent',
+                    borderRightColor: 'transparent',
+                    borderTopColor: markerColor,
+                    marginLeft: -5,
                   }}
-                >
-                  {i === active && (
-                    <View
-                      style={{
-                        width: 0,
-                        height: 0,
-                        borderLeftWidth: 5,
-                        borderRightWidth: 5,
-                        borderTopWidth: 6,
-                        borderLeftColor: 'transparent',
-                        borderRightColor: 'transparent',
-                        borderTopColor: VTT_SCALE[active]!.hex,
-                      }}
-                    />
-                  )}
-                </View>
-              ))}
-            </View>
-          )}
+                />
+                <View style={{ flex: 6 - clamped }} />
+              </View>
+            );
+          })()}
 
-          {/* Tick labels */}
+          {/* Tick labels aligned to zone boundaries */}
           <View
             style={{
               flexDirection: 'row',
-              justifyContent: 'space-between',
+              alignItems: 'center',
               marginTop: active >= 0 ? 0 : spacing.xs,
-              paddingHorizontal: 1,
             }}
           >
             <Text style={tickStyle}>0</Text>
+            <View style={{ flex: 1 }} />
             <Text style={tickStyle}>1</Text>
+            <View style={{ flex: 2 }} />
             <Text style={tickStyle}>3</Text>
+            <View style={{ flex: 3 }} />
             <Text style={tickStyle}>6</Text>
           </View>
         </View>

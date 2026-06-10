@@ -8,6 +8,7 @@
 // swallowed since pre-seeding is purely an optimisation.
 // ══════════════════════════════════════════════════════════════
 import { useEffect, useRef } from 'react';
+import { InteractionManager } from 'react-native';
 
 import { useSensorGroups } from '@/features/indeklima/hooks';
 import { preseedTiles, type Bounds } from '@/lib/tileCache';
@@ -47,6 +48,8 @@ function boundsFromGroups(
   return { latMin, latMax, lngMin, lngMax };
 }
 
+const PRESEED_DELAY_MS = 3000;
+
 export function useTilePreseed() {
   const { data: groups } = useSensorGroups();
   const lastKey = useRef('');
@@ -60,6 +63,18 @@ export function useTilePreseed() {
     if (key === lastKey.current) return;
     lastKey.current = key;
 
-    void preseedTiles(bounds);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
+      timer = setTimeout(() => void preseedTiles(bounds), PRESEED_DELAY_MS);
+    });
+
+    return () => {
+      cancelled = true;
+      handle.cancel();
+      if (timer) clearTimeout(timer);
+    };
   }, [groups]);
 }

@@ -20,8 +20,10 @@
     "empty": "Inga data",
     "refresh": "Uppdatera",
     "offline": "Offline — visar cachad data",
+    "back_online": "Online igen",
     "coming_soon": "Kommer snart",
-    "optional": "valfritt"
+    "optional": "valfritt",
+    "days": "dagar"
   },
   "layout": {
     "modules": {
@@ -119,7 +121,10 @@
         "visual_growth": "Synlig risk",
         "tooltip": "Mögelindex (VTT)",
         "scale_title": "VTT Mögelindex",
-        "scale_subtitle": "Skala 0–6 · Lägre är bättre"
+        "scale_subtitle": "Skala 0–6 · Lägre är bättre",
+        "trend_rising": "Stigande",
+        "trend_falling": "Fallande",
+        "trend_stable": "Stabil"
       }
     },
     "alerts": {
@@ -160,6 +165,8 @@
       "last_update": "Senast uppdaterad",
       "last_measurement": "Senaste mätning",
       "measurement_at": "Mätt {{when}}",
+      "pir_since_today": "Sedan kl. {{time}}",
+      "pir_since_dated": "Sedan {{when}}",
       "prev_period": "Föregående period",
       "next_period": "Nästa period",
       "open_fullscreen": "Öppna graf i helskärm",

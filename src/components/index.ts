@@ -7,6 +7,7 @@ export type { ButtonVariant } from './Button';
 export { FormField, FormInput } from './FormField';
 export { LoadingIndicator } from './LoadingIndicator';
 export { ErrorBanner } from './ErrorBanner';
+export { OfflineBanner } from './OfflineBanner';
 export { ErrorState } from './ErrorState';
 export type { ErrorStateProps, ErrorStateAction } from './ErrorState';
 export { SegmentedControl } from './SegmentedControl';

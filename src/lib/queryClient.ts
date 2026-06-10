@@ -13,10 +13,21 @@
 // at once via queryClient.invalidateQueries({ queryKey: ['indeklima'] })
 // or queryClient.clear().
 // ══════════════════════════════════════════════════════════════
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, onlineManager } from '@tanstack/react-query';
 import type { PersistedClient, Persister } from '@tanstack/react-query-persist-client';
+import NetInfo from '@react-native-community/netinfo';
 
 import { storage, StorageKeys } from './storage';
+
+// ── Online/offline awareness ─────────────────────────────────
+// Tells TanStack Query whether the device has network. When
+// offline, queries pause instead of failing; when connectivity
+// returns, they automatically refetch.
+onlineManager.setEventListener((setOnline) => {
+  return NetInfo.addEventListener((state) => {
+    setOnline(!!state.isConnected);
+  });
+});
 
 const HOURS = 60 * 60 * 1000;
 const DAYS = 24 * HOURS;
@@ -63,14 +74,23 @@ export const queryClient = new QueryClient({
 
 // ── Storage-backed persister ───────────────────────────────
 // Uses the synchronous `storage` wrapper (MMKV or AsyncStorage-
-// hydrated). Persister is called on every mutation of the cache.
+// hydrated). `persistClient` is debounced so that startup query
+// storms (dozens of queries resolving in quick succession) only
+// trigger 1-2 serialisations instead of one per query update.
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+const PERSIST_DEBOUNCE_MS = 2000;
+
 export const queryPersister: Persister = {
   persistClient: async (client: PersistedClient) => {
-    try {
-      storage.set(StorageKeys.QUERY_CACHE, JSON.stringify(client));
-    } catch {
-      // Storage full or serialization error — not fatal.
-    }
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      persistTimer = null;
+      try {
+        storage.set(StorageKeys.QUERY_CACHE, JSON.stringify(client));
+      } catch {
+        // Storage full or serialization error — not fatal.
+      }
+    }, PERSIST_DEBOUNCE_MS);
   },
   restoreClient: async () => {
     const raw = storage.getString(StorageKeys.QUERY_CACHE);
@@ -83,6 +103,10 @@ export const queryPersister: Persister = {
     }
   },
   removeClient: async () => {
+    if (persistTimer) {
+      clearTimeout(persistTimer);
+      persistTimer = null;
+    }
     storage.delete(StorageKeys.QUERY_CACHE);
   },
 };

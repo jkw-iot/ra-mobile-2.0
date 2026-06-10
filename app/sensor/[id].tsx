@@ -26,9 +26,10 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
-import { useMemo, useState, useEffect, type ReactNode } from 'react';
+import { useMemo, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   startOfDay,
@@ -55,6 +56,7 @@ import {
   useSensorTypes,
   useMoldZones,
   useEffectiveScenario,
+  usePirSince,
   buildTypeParamsMap,
   sensorSupports,
 } from '@/features/indeklima/hooks';
@@ -118,6 +120,16 @@ function fmtNum(v: number | string | undefined, digits = 1): string {
  * older) can't be reparsed reliably; a bare time-of-day is shown as
  * "<today>, kl. HH:MM", anything else verbatim.
  */
+function parseMeasurementEpoch(raw: string | undefined, tt: TenantTime): number | null {
+  if (!raw) return null;
+  if (raw.length <= 8 && /^\d{1,2}:\d{2}$/.test(raw)) {
+    const todayYmd = ymd(new Date());
+    const d = tt.parseLegacy(`${todayYmd}T${raw}:00`);
+    return d?.getTime() ?? null;
+  }
+  return tt.parseLegacy(raw)?.getTime() ?? null;
+}
+
 function formatMeasurementStamp(raw: string | undefined, tt: TenantTime): string {
   if (!raw) return '—';
   if (raw.length <= 8) {
@@ -183,6 +195,7 @@ export default function SensorDetailScreen() {
   const { t } = useTranslation();
   const tt = useTenantTime();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { id: idParam, param: paramParam } = useLocalSearchParams<{
     id: string;
@@ -239,6 +252,7 @@ export default function SensorDetailScreen() {
     isRefetching,
   } = useSensor(id);
 
+
   const thresholdsQuery = useSensorThresholds(id);
   const sensorTypesQuery = useSensorTypes();
   const { moldIndexMap } = useMoldZones();
@@ -248,6 +262,11 @@ export default function SensorDetailScreen() {
   );
 
   const today = useMemo(() => ymd(new Date()), []);
+
+  // PIR "since" — always called before early-return guards to preserve
+  // hook call order. Shares the day-view cache when period === 'day'.
+  const pirSinceMs = usePirSince(id, today, sensor?.pir);
+
   const dateRange = useMemo(() => rangeForAnchor(period, anchor), [period, anchor]);
   const { useRaw } = dateRange;
 
@@ -324,6 +343,13 @@ export default function SensorDetailScreen() {
   const canGoNext = !isSameDay(anchor, startOfDay(new Date()))
     && isAfter(startOfDay(new Date()), anchor);
 
+  const onRefresh = useCallback(() => {
+    refetch();
+    queryClient.invalidateQueries({
+      queryKey: ['indeklima', 'scope-thresholds'],
+    });
+  }, [refetch, queryClient]);
+
   // ── Loading / empty guards ───────────────────────────────
   if (!sensor && sensorWaiting) {
     return (
@@ -335,7 +361,7 @@ export default function SensorDetailScreen() {
   }
 
   if (!sensor) {
-    const apiMessage = isError ? (error as Error)?.message : undefined;
+    const apiMessage = isError ? friendlyApiErrorMessage(error, t) : undefined;
     return (
       <View style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
         <HeaderShell
@@ -530,7 +556,7 @@ export default function SensorDetailScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching || raw.isRefetching || hourly.isRefetching}
-            onRefresh={refetch}
+            onRefresh={onRefresh}
             tintColor={colors.navy}
           />
         }
@@ -564,8 +590,10 @@ export default function SensorDetailScreen() {
               );
             }
             const sp = p as Exclude<Param, 'vtt'>;
+            const isPir = sp === 'pir';
+            const pirOccupied = isPir ? (toNumber(sensor[sp]) ?? 0) > 0 : false;
             const value =
-              sp === 'pir'
+              isPir
                 ? (() => {
                     const n = toNumber(sensor[sp]);
                     if (n == null) return '—';
@@ -575,7 +603,7 @@ export default function SensorDetailScreen() {
                   })()
                 : fmtNum(sensor[sp], sp === 'temp' ? 1 : 0);
             const valueColor = ((): string | undefined => {
-              if (sp === 'pir') return undefined;
+              if (isPir) return pirOccupied ? colors.statusBad : colors.statusGood;
               if (!hasThresholds(normalizedThresholds, sp)) return undefined;
               const zone: ThresholdZone = zoneForValue(
                 normalizedThresholds,
@@ -586,6 +614,24 @@ export default function SensorDetailScreen() {
               if (zone === 'yellow') return colors.statusWarn;
               return colors.statusGood;
             })();
+
+            // "Siden: kl. HH:MM" subtitle for the PIR tile
+            const pirSubtitle = isPir
+              ? (() => {
+                  const sinceMs = pirSinceMs ?? parseMeasurementEpoch(sensor.time, tt);
+                  if (sinceMs == null) return undefined;
+                  const d = new Date(sinceMs);
+                  if (isSameDay(d, new Date())) {
+                    return t('indeklima.sensor_detail.pir_since_today', {
+                      time: tt.formatTime(d),
+                    });
+                  }
+                  return t('indeklima.sensor_detail.pir_since_dated', {
+                    when: tt.formatDateTime(d),
+                  });
+                })()
+              : undefined;
+
             return (
               <KpiTile
                 key={p}
@@ -595,6 +641,8 @@ export default function SensorDetailScreen() {
                 icon={paramIcon(p)}
                 iconColor={paramColor(p)}
                 valueColor={valueColor}
+                valueFontSize={isPir ? 24 : undefined}
+                subtitle={pirSubtitle}
                 active={activeParam === p}
                 onPress={() => setParam(p)}
               />
@@ -716,7 +764,11 @@ export default function SensorDetailScreen() {
               ) : null}
 
               {isVttParam && sensorMoldZone ? (
-                <VttScaleCard value={sensorMoldZone.mouldIndex} />
+                <VttScaleCard
+                  value={sensorMoldZone.mouldIndex}
+                  trend={sensorMoldZone.trend}
+                  trendDays={sensorMoldZone.trendDays}
+                />
               ) : historyLoading ? (
                 <LoadingIndicator inline />
               ) : activeParam === 'pir' ? (

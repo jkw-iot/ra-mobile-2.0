@@ -192,16 +192,22 @@ export default function IndeklimaMapScreen() {
     if (first) setPrimaryParam(first);
   }, [availableParams, primaryParam]);
 
+  const paramFiltered = useMemo(() => {
+    return visible.filter((s) =>
+      sensorSupports(s.sensorType, primaryParam, typeMap),
+    );
+  }, [visible, primaryParam, typeMap]);
+
   const placedSensors = useMemo(
-    () => placeSensors(visible, groupsQuery.data, positionsQuery.data),
-    [visible, groupsQuery.data, positionsQuery.data],
+    () => placeSensors(paramFiltered, groupsQuery.data, positionsQuery.data),
+    [paramFiltered, groupsQuery.data, positionsQuery.data],
   );
 
   // Threshold queries — same batched pattern the list uses, so
   // marker tinting matches the cards 1:1 (down to which API
   // shape variant is honoured per sensor).
   const thresholdQueries = useQueries({
-    queries: visible.map((s) => ({
+    queries: paramFiltered.map((s) => ({
       queryKey: [
         'indeklima',
         'sensor',
@@ -218,12 +224,12 @@ export default function IndeklimaMapScreen() {
 
   const thresholdMap = useMemo(() => {
     const m = new Map<number, NormalizedThresholds>();
-    visible.forEach((s, i) => {
+    paramFiltered.forEach((s, i) => {
       const data = thresholdQueries[i]?.data;
       if (data) m.set(s.id, normalizeThresholds(data));
     });
     return m;
-  }, [visible, thresholdQueries]);
+  }, [paramFiltered, thresholdQueries]);
 
   // Auto-fit when the visible sensor set changes. We animate so
   // the user sees the camera move (acts as feedback for their

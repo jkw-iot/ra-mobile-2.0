@@ -135,7 +135,7 @@ export default function WaterDashboardScreen() {
         <AppHeader />
         <ErrorState
           title={isBackendUnreachable(error) ? t("errors.legacy_unavailable_title") : t("errors.unknown")}
-          message={isBackendUnreachable(error) ? t("errors.legacy_unavailable") : (error as Error)?.message}
+          message={friendlyApiErrorMessage(error, t)}
           actions={[
             {
               label: t("common.retry"),

@@ -36,6 +36,7 @@
 // scary than a raw error dump.
 // ══════════════════════════════════════════════════════════════
 import type { TFunction } from 'i18next';
+import { onlineManager } from '@tanstack/react-query';
 import { ApiError } from '@/services/api/client';
 
 const LEGACY_STATUS_CODES = new Set([502, 503, 504]);
@@ -129,12 +130,22 @@ export function isBackendUnreachable(err: unknown): boolean {
 
 /**
  * Resolve an error into the localised string we want to show.
- * - Backend unreachable (Legacy 5xx, Hono down, offline, DNS …) →
+ *
+ * - Device offline (network error + onlineManager says offline) →
+ *   `errors.network` ("check your internet connection")
+ * - Network error but device thinks it's online (server unreachable) →
+ *   `errors.legacy_unavailable`
+ * - Legacy outage (5xx from Hono proxy) →
  *   `errors.legacy_unavailable`
  * - Otherwise → original message, falling back to `errors.unknown`.
  */
 export function friendlyApiErrorMessage(err: unknown, t: TFunction): string {
-  if (isBackendUnreachable(err)) return t('errors.legacy_unavailable');
+  if (isNetworkError(err)) {
+    return onlineManager.isOnline()
+      ? t('errors.legacy_unavailable')
+      : t('errors.network');
+  }
+  if (isLegacyOutage(err)) return t('errors.legacy_unavailable');
   if (err instanceof Error && err.message) return err.message;
   return t('errors.unknown');
 }
