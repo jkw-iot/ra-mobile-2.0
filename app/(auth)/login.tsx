@@ -18,7 +18,7 @@ import {
   Pressable,
   Linking,
 } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -43,7 +43,14 @@ import {
   verifyTotpSignIn,
   type MultiFactorResolver,
 } from '@/services/auth/firebase';
+import {
+  authenticate,
+  getStoredCredentials,
+  storeCredentials,
+} from '@/services/auth/biometrics';
 import { useGoogleSignIn } from '@/services/auth/google';
+import { useBiometrics } from '@/hooks/useBiometrics';
+import { useBiometricStore } from '@/stores/biometricStore';
 import { env } from '@/lib/env';
 import { setLanguage, SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/i18n';
 
@@ -83,6 +90,51 @@ export default function LoginScreen() {
   const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [mfaCode, setMfaCode] = useState('');
 
+  // Biometric quick re-login
+  const { available: biometricAvailable, label: biometricLabel, type: biometricType } = useBiometrics();
+  const biometricEnabled = useBiometricStore((s) => s.enabled);
+  const markVerified = useBiometricStore((s) => s.markVerified);
+  const [hasStoredCreds, setHasStoredCreds] = useState(false);
+
+  useEffect(() => {
+    if (biometricEnabled && biometricAvailable) {
+      getStoredCredentials().then((creds) => setHasStoredCreds(creds !== null));
+    }
+  }, [biometricEnabled, biometricAvailable]);
+
+  const canUseBiometric = biometricEnabled && biometricAvailable && hasStoredCreds;
+
+  const onBiometricLogin = async () => {
+    const promptMsg = biometricType === 'face'
+      ? t('biometric.prompt_faceid')
+      : t('biometric.prompt_fingerprint');
+
+    const success = await authenticate(promptMsg);
+    if (!success) return;
+
+    const creds = await getStoredCredentials();
+    if (!creds) {
+      setError(t('biometric.credentials_expired'));
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      clearLoginError();
+      await loginWithEmail(creds.email, creds.password);
+      markVerified();
+    } catch (e) {
+      const err = e as { code?: string };
+      if (err?.code === 'auth/multi-factor-auth-required') {
+        setError(t('biometric.mfa_not_supported'));
+      } else {
+        setError(t('biometric.credentials_expired'));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
   // Backend-sync failures (Hono / Legacy unreachable after a
   // successful Firebase auth) come through `useAuth().loginError`
   // and trump the local form errors — they're more actionable
@@ -150,6 +202,10 @@ export default function LoginScreen() {
     try {
       setSubmitting(true);
       await loginWithEmail(email.trim(), password);
+      // Store credentials for biometric re-login if enabled
+      if (biometricEnabled) {
+        storeCredentials(email.trim(), password).catch(() => {});
+      }
     } catch (e) {
       const err = e as { code?: string };
       if (err?.code === 'auth/multi-factor-auth-required') {
@@ -362,6 +418,19 @@ export default function LoginScreen() {
                     loading={submitting}
                     fullWidth
                   />
+
+                  {canUseBiometric ? (
+                    <View style={{ marginTop: spacing.md }}>
+                      <Button
+                        label={t('biometric.login_button', { type: biometricLabel })}
+                        icon={biometricType === 'face' ? 'person-bounding-box' : 'fingerprint'}
+                        onPress={onBiometricLogin}
+                        variant="secondary"
+                        fullWidth
+                        disabled={submitting}
+                      />
+                    </View>
+                  ) : null}
 
                   {googleEnabled ? (
                     <View style={{ marginTop: spacing.md }}>

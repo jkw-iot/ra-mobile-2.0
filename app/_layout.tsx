@@ -4,11 +4,11 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { View, Text } from 'react-native';
+import { View, Text, AppState, type AppStateStatus } from 'react-native';
 
 import '@/i18n';
 import '../global.css';
@@ -18,7 +18,9 @@ import { colors, type } from '@/theme';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { AuthProvider, useAuth } from '@/services/auth/AuthProvider';
 import { LoadingIndicator, OfflineBanner } from '@/components';
+import { BiometricLockScreen } from '@/components/BiometricLockScreen';
 import { useTenantStore } from '@/stores/tenantStore';
+import { useBiometricStore } from '@/stores/biometricStore';
 import { ensureTileCacheDir } from '@/lib/tileCache';
 import { useResumeToSensors } from '@/hooks/useResumeToSensors';
 import { useProactiveTokenRefresh } from '@/hooks/useProactiveTokenRefresh';
@@ -33,8 +35,54 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const segments = useSegments();
   const router = useRouter();
 
+  // Biometric lock state
+  const biometricEnabled = useBiometricStore((s) => s.enabled);
+  const lockTimeoutMinutes = useBiometricStore((s) => s.lockTimeoutMinutes);
+  const lastVerifiedAt = useBiometricStore((s) => s.lastVerifiedAt);
+  const markVerified = useBiometricStore((s) => s.markVerified);
+  const [locked, setLocked] = useState(false);
+  const backgroundedAtRef = useRef<number | null>(null);
+
   useProactiveTokenRefresh();
   useScenarioFreshness();
+
+  // AppState listener — lock when returning from background after timeout
+  useEffect(() => {
+    if (!biometricEnabled || !isAuthenticated) return;
+
+    const handleAppState = (nextState: AppStateStatus) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        backgroundedAtRef.current = Date.now();
+      } else if (nextState === 'active' && backgroundedAtRef.current !== null) {
+        const elapsed = Date.now() - backgroundedAtRef.current;
+        const timeoutMs = lockTimeoutMinutes * 60 * 1000;
+        backgroundedAtRef.current = null;
+        if (elapsed >= timeoutMs) {
+          setLocked(true);
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppState);
+    return () => subscription.remove();
+  }, [biometricEnabled, isAuthenticated, lockTimeoutMinutes]);
+
+  // On initial mount: if biometric is enabled and never verified this session, lock
+  useEffect(() => {
+    if (biometricEnabled && isAuthenticated && lastVerifiedAt === null) {
+      setLocked(true);
+    }
+  }, [biometricEnabled, isAuthenticated, lastVerifiedAt]);
+
+  const handleUnlocked = useCallback(() => {
+    setLocked(false);
+  }, []);
+
+  const handleFallbackLogin = useCallback(() => {
+    setLocked(false);
+    // Force full re-auth via login screen
+    router.replace('/(auth)/login');
+  }, [router]);
 
   // After a long absence, return the user to the sensor list (which
   // restores the last-viewed location per tenant). Only armed once
@@ -91,7 +139,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       </View>
     );
   }
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <BiometricLockScreen
+        visible={locked && isAuthenticated}
+        onUnlocked={handleUnlocked}
+        onFallbackLogin={handleFallbackLogin}
+      />
+    </>
+  );
 }
 
 export default function RootLayout() {

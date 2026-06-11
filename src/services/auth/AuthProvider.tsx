@@ -15,6 +15,8 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { useQueryClient } from '@tanstack/react-query';
 
 import { isFirebaseConfigured, logout as firebaseLogout, onAuthChange, type FirebaseUser } from './firebase';
+import { clearStoredCredentials } from './biometrics';
+import { useBiometricStore } from '@/stores/biometricStore';
 import { apiClient } from '@/services/api/client';
 import { storage, StorageKeys } from '@/lib/storage';
 
@@ -214,6 +216,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     for (const key of SENSITIVE_STORAGE_KEYS) {
       storage.delete(key);
     }
+    // Clear biometric credentials + reset biometric store
+    clearStoredCredentials().catch(() => {});
+    useBiometricStore.getState().reset();
     queryClient.clear();
   }, [clear, queryClient]);
 

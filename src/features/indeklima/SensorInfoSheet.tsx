@@ -317,6 +317,10 @@ function ScenarioSection({
   const scenarioName = meta
     ? t(`indeklima.scenarios.${meta.labelKey}`)
     : scenario.scenarioId;
+  const scenarioNotesRaw = meta?.notesKey
+    ? t(`indeklima.scenarios.${meta.notesKey}`)
+    : '';
+  const scenarioNotes = scenarioNotesRaw.replace(/\*\*/g, '');
   const scenarioDesc = meta?.descKey
     ? t(`indeklima.scenarios.${meta.descKey}`)
     : '';
@@ -331,7 +335,7 @@ function ScenarioSection({
   );
 
   return (
-    <View style={{ gap: spacing.sm }}>
+    <View style={{ gap: spacing.lg }}>
       {/* Header — icon + name + scope */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <View
@@ -363,9 +367,16 @@ function ScenarioSection({
         </View>
       </View>
 
-      {/* Description */}
-      {scenarioDesc ? (
-        <View style={{ gap: 4 }}>
+      {/* Description — full scenario notes */}
+      {scenarioNotes ? (
+        <View style={{ gap: spacing.sm }}>
+          <Text style={type.sectionLabel}>
+            {t('indeklima.sensor_detail.scenario.description_heading').toUpperCase()}
+          </Text>
+          <Text style={type.body}>{scenarioNotes}</Text>
+        </View>
+      ) : scenarioDesc ? (
+        <View style={{ gap: spacing.sm }}>
           <Text style={type.sectionLabel}>
             {t('indeklima.sensor_detail.scenario.description_heading').toUpperCase()}
           </Text>
@@ -374,7 +385,7 @@ function ScenarioSection({
       ) : null}
 
       {/* Threshold rows */}
-      <View style={{ gap: 4 }}>
+      <View style={{ gap: spacing.sm }}>
         <Text style={type.sectionLabel}>
           {t('indeklima.sensor_detail.scenario.thresholds_heading').toUpperCase()}
         </Text>

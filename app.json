@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.roomalyzer.mobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Brug Face ID til hurtig og sikker login i RoomAlyzer"
       }
     },
     "android": {
@@ -36,6 +37,7 @@
       "expo-router",
       "expo-font",
       "expo-secure-store",
+      "expo-local-authentication",
       "expo-localization",
       "expo-web-browser",
       [

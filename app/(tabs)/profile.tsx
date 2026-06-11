@@ -5,7 +5,7 @@
 // drawer); the hero still shows the active tenant as a "you are
 // here" chip while the body lets the user switch.
 // ══════════════════════════════════════════════════════════════
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Switch } from 'react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +24,13 @@ import { colors, radius, spacing, type } from '@/theme';
 import { useAuth } from '@/services/auth/AuthProvider';
 import { useTenantStore } from '@/stores/tenantStore';
 import { useModuleStore, getModulePrimaryRoute } from '@/stores/moduleStore';
+import { useBiometricStore } from '@/stores/biometricStore';
+import { useBiometrics } from '@/hooks/useBiometrics';
+import {
+  authenticate,
+  storeCredentials,
+  clearStoredCredentials,
+} from '@/services/auth/biometrics';
 import { setLanguage, SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/i18n';
 import { haptic } from '@/lib/haptics';
 
@@ -36,6 +43,42 @@ export default function ProfileScreen() {
   const activeModule = useModuleStore((s) => s.activeModule);
   const activeTenant = tenants.find((ten) => ten.id === activeTenantId);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Biometric settings
+  const { available: biometricAvailable, label: biometricLabel } = useBiometrics();
+  const biometricEnabled = useBiometricStore((s) => s.enabled);
+  const setBiometricEnabled = useBiometricStore((s) => s.setEnabled);
+  const markVerified = useBiometricStore((s) => s.markVerified);
+  const [biometricToggling, setBiometricToggling] = useState(false);
+
+  const onToggleBiometric = async (value: boolean) => {
+    if (biometricToggling) return;
+    setBiometricToggling(true);
+    try {
+      if (value) {
+        const success = await authenticate(t('biometric.confirm_enable'));
+        if (!success) return;
+        // We need stored credentials for re-login (scenario B).
+        // Since the user is currently authenticated we ask them to
+        // re-enter their password to store it securely.
+        // For MVP we store only if email is known; full credential
+        // prompt can be added later.
+        if (user?.email) {
+          // Mark as enabled — credentials will be stored on next
+          // manual login (the login screen persists them).
+          setBiometricEnabled(true);
+          markVerified();
+          haptic.success();
+        }
+      } else {
+        await clearStoredCredentials();
+        setBiometricEnabled(false);
+        haptic.light();
+      }
+    } finally {
+      setBiometricToggling(false);
+    }
+  };
 
   // Switching tenant from Profile drops the user back onto the
   // active module's primary screen (the sensor list for
@@ -181,6 +224,48 @@ export default function ProfileScreen() {
             ariaLabel={t('profile.language')}
           />
         </View>
+
+        {/* Biometric login */}
+        {biometricAvailable ? (
+          <View
+            style={{
+              backgroundColor: colors.white,
+              borderRadius: radius.lg,
+              borderWidth: 1,
+              borderColor: colors.gray[200],
+              padding: spacing.md,
+              gap: spacing.sm,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Icon name="fingerprint" color={colors.brand} size={14} />
+              <Text style={type.sectionLabel}>{t('biometric.section_title')}</Text>
+            </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <View style={{ flex: 1, marginRight: spacing.md }}>
+                <Text style={type.body}>
+                  {t('biometric.enable_label', { type: biometricLabel })}
+                </Text>
+                <Text style={[type.caption, { marginTop: 2 }]}>
+                  {t('biometric.enable_description')}
+                </Text>
+              </View>
+              <Switch
+                value={biometricEnabled}
+                onValueChange={onToggleBiometric}
+                disabled={biometricToggling}
+                trackColor={{ true: colors.brand, false: colors.gray[300] }}
+                thumbColor={colors.white}
+              />
+            </View>
+          </View>
+        ) : null}
 
         {/* Sign out */}
         <Button

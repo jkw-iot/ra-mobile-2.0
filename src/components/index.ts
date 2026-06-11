@@ -33,3 +33,4 @@ export { ParamPicker, PARAM_META, PARAM_ORDER } from './ParamPicker';
 export type { ParamPickerProps, ParamKey } from './ParamPicker';
 export { SensorMapMarker } from './SensorMapMarker';
 export type { SensorMapMarkerProps } from './SensorMapMarker';
+export { BiometricLockScreen } from './BiometricLockScreen';
