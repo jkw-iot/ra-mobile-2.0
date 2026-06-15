@@ -29,7 +29,12 @@ import Animated, {
 
 import { colors, type, radius } from '@/theme';
 import { haptic } from '@/lib/haptics';
-import { monotoneCubicPath } from '@/features/indeklima/chartHelpers';
+import {
+  monotoneCubicPath,
+  generateNiceTimeTicks,
+  maxTicksForWidth,
+  type TickFormat,
+} from '@/features/indeklima/chartHelpers';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -54,12 +59,19 @@ export interface LineChartProps {
   zones?: readonly ChartZone[];
   /** Use monotone cubic spline instead of straight segments. */
   smooth?: boolean;
+  /** Tenant timezone for snapping ticks to round boundaries. */
+  tz?: string;
   /**
    * Tenant-tz-aware formatters. Provide these (from `useTenantTime`)
    * so the tooltip and axis labels render the tenant's wall clock on
    * any device. Both fall back to a device-local format when omitted.
    */
   formatTimestamp?: (ms: number) => string;
+  /** Format for time-only axis labels (HH:mm). */
+  formatClock?: (ms: number) => string;
+  /** Format for date-only axis labels (e.g. "15. jun"). */
+  formatDate?: (ms: number) => string;
+  /** Format for combined date+time axis labels (e.g. "15. jun 12:00"). */
   formatAxisLabel?: (ms: number) => string;
 }
 
@@ -116,8 +128,6 @@ function isFiniteBound(v: number): boolean {
   return Number.isFinite(v) && Math.abs(v) < FINITE_LIMIT;
 }
 
-const X_TICK_COUNT = 5;
-
 /** Convert a hex colour (#RRGGBB) to rgba(r,g,b,a). */
 function hexToRgba(hex: string, a: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -134,7 +144,10 @@ export function LineChart({
   unit,
   zones,
   smooth = false,
+  tz,
   formatTimestamp = fallbackDateTime,
+  formatClock: formatClockProp,
+  formatDate: formatDateProp,
   formatAxisLabel = fallbackAxisLabel,
 }: LineChartProps) {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -224,11 +237,21 @@ export function LineChart({
     })
     .filter((z): z is { color: string; y: number; height: number } => z !== null);
 
-  // ── X-axis ticks ────────────────────────────────────────
-  const xTicks: number[] = [];
-  for (let i = 0; i < X_TICK_COUNT; i++) {
-    xTicks.push(minT + (tSpan * i) / (X_TICK_COUNT - 1));
-  }
+  // ── X-axis ticks (snapped to round boundaries) ─────────
+  const maxXTicks = maxTicksForWidth(plotW);
+  const { ticks: xTicks, format: xTickFormat } = useMemo(
+    () => generateNiceTimeTicks(minT, maxT, maxXTicks, tz),
+    [minT, maxT, maxXTicks, tz],
+  );
+
+  const xTickLabel = useCallback(
+    (t: number): string => {
+      if (xTickFormat === 'time' && formatClockProp) return formatClockProp(t);
+      if (xTickFormat === 'date' && formatDateProp) return formatDateProp(t);
+      return formatAxisLabel(t);
+    },
+    [xTickFormat, formatClockProp, formatDateProp, formatAxisLabel],
+  );
 
   // ── Min / max markers ──────────────────────────────────
   let minPt: (typeof valid)[number] | null = null;
@@ -392,7 +415,7 @@ export function LineChart({
 
           {/* Vertical gridlines */}
           {xTicks.map((t, i) => {
-            if (i === 0 || i === X_TICK_COUNT - 1) return null;
+            if (i === 0 || i === xTicks.length - 1) return null;
             const x = toX(t);
             return (
               <Line
@@ -484,7 +507,7 @@ export function LineChart({
 
           {/* X-axis tick labels */}
           {xTicks.map((t, i) => {
-            const anchor = i === 0 ? 'start' : i === X_TICK_COUNT - 1 ? 'end' : 'middle';
+            const anchor = i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle';
             return (
               <SvgText
                 key={`xt-${i}`}
@@ -494,7 +517,7 @@ export function LineChart({
                 fill={colors.gray[500]}
                 textAnchor={anchor}
               >
-                {formatAxisLabel(t)}
+                {xTickLabel(t)}
               </SvgText>
             );
           })}

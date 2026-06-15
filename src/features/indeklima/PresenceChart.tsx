@@ -22,7 +22,6 @@
 // plus the precise timestamp.
 // ══════════════════════════════════════════════════════════════
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -44,6 +43,11 @@ import Svg, {
 import { colors, radius, type } from '@/theme';
 import { haptic } from '@/lib/haptics';
 import type { LinePoint } from '@/features/indeklima/LineChart';
+import {
+  generateNiceTimeTicks,
+  maxTicksForWidth,
+  type TickFormat,
+} from '@/features/indeklima/chartHelpers';
 
 type TextAnchor = 'start' | 'middle' | 'end';
 
@@ -55,10 +59,21 @@ export interface PresenceChartProps {
   fromTs: number;
   /** Inclusive right edge of the X axis (ms). */
   toTs: number;
+  /**
+   * When the visible period includes "right now", pass `Date.now()`
+   * here. The chart will clip colored bands at this timestamp, leave
+   * the future blank, and draw a "now" marker with the current status.
+   * Omit for fully historical periods (e.g. viewing yesterday).
+   */
+  nowTs?: number;
   /** Localised label for the top row (e.g. "Optaget"). */
   occupiedLabel: string;
   /** Localised label for the bottom row (e.g. "Ledigt"). */
   vacantLabel: string;
+  /** Short "now" label shown at the now-marker (e.g. "Nu"). */
+  nowLabel?: string;
+  /** Tenant timezone for snapping ticks to round boundaries. */
+  tz?: string;
   /**
    * Tenant-tz-aware formatters (from `useTenantTime`). Provide these
    * so axis ticks + tooltip render the tenant's wall clock on any
@@ -66,6 +81,8 @@ export interface PresenceChartProps {
    */
   formatClock?: (ms: number) => string;
   formatDate?: (ms: number) => string;
+  /** Format for combined date+time axis labels (e.g. "15. jun 12:00"). */
+  formatDateTime?: (ms: number) => string;
 }
 
 interface ClassifiedPoint {
@@ -83,7 +100,6 @@ interface TransitionDot {
   occupied: boolean;
 }
 
-const TICK_COUNT = 5;
 
 const MONTHS_DA = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 
@@ -126,10 +142,14 @@ export function PresenceChart({
   height = 170,
   fromTs,
   toTs,
+  nowTs,
   occupiedLabel,
   vacantLabel,
+  nowLabel = 'Nu',
+  tz,
   formatClock = fallbackClock,
   formatDate = fallbackDate,
+  formatDateTime,
 }: PresenceChartProps) {
   const fmtDateTime = (ms: number): string => `${formatDate(ms)} · ${formatClock(ms)}`;
   const padLeft = 56;
@@ -142,6 +162,14 @@ export function PresenceChart({
   const tSpan = Math.max(1, toTs - fromTs);
 
   const toX = (t: number) => padLeft + ((t - fromTs) / tSpan) * plotW;
+
+  // Effective "now" edge: bands and base color stop here.
+  // Clamped to the visible range so historical periods are unaffected.
+  const effectiveNow = nowTs != null
+    ? Math.max(fromTs, Math.min(nowTs, toTs))
+    : null;
+  const bandEndTs = effectiveNow ?? toTs;
+  const bandEndX = toX(bandEndTs);
 
   // Stack the two rows in the upper / lower thirds — leaves room
   // for the gridline + dot without crowding the band edges.
@@ -190,14 +218,19 @@ export function PresenceChart({
     return out;
   }, [sorted]);
 
-  // X-axis tick labels, evenly spaced. Switch to date format if
-  // the span exceeds ~36 hours so we don't show "00:00" labels
-  // across multiple distinct days without context.
-  const useDateLabels = tSpan > 36 * 60 * 60 * 1000;
-  const tickValues: number[] = [];
-  for (let i = 0; i < TICK_COUNT; i++) {
-    tickValues.push(fromTs + (tSpan * i) / (TICK_COUNT - 1));
-  }
+  // X-axis tick labels — snapped to round boundaries.
+  const maxXTicks = maxTicksForWidth(plotW);
+  const { ticks: tickValues, format: xTickFormat } = useMemo(
+    () => generateNiceTimeTicks(fromTs, toTs, maxXTicks, tz),
+    [fromTs, toTs, maxXTicks, tz],
+  );
+
+  const xTickLabel = (t: number): string => {
+    if (xTickFormat === 'time') return formatClock(t);
+    if (xTickFormat === 'date') return formatDate(t);
+    if (formatDateTime) return formatDateTime(t);
+    return `${formatDate(t)} ${formatClock(t)}`;
+  };
 
   const empty = sorted.length === 0;
 
@@ -306,19 +339,20 @@ export function PresenceChart({
 
       <View {...panResponder.panHandlers}>
         <Svg width={width} height={height}>
-          {/* Light dusty-sage base — "vacant" everywhere by default. */}
+          {/* Light dusty-sage base — only up to "now" (or end of period). */}
           <Rect
             x={padLeft}
             y={padTop}
-            width={plotW}
+            width={Math.max(0, bandEndX - padLeft)}
             height={plotH}
             fill="rgba(108,158,131,0.10)"
           />
 
-          {/* Red bands across every occupied interval. */}
+          {/* Red bands across every occupied interval, clipped at now. */}
           {intervals.map((iv, i) => {
+            const clampedTo = Math.min(iv.to, bandEndTs);
             const x1 = Math.max(toX(iv.from), padLeft);
-            const x2 = Math.min(toX(iv.to), padLeft + plotW);
+            const x2 = Math.min(toX(clampedTo), bandEndX);
             if (x2 <= x1) return null;
             return (
               <Rect
@@ -334,7 +368,7 @@ export function PresenceChart({
 
           {/* Vertical gridlines */}
           {tickValues.map((t, i) => {
-            if (i === 0 || i === TICK_COUNT - 1) return null;
+            if (i === 0 || i === tickValues.length - 1) return null;
             const x = toX(t);
             return (
               <Line
@@ -407,10 +441,8 @@ export function PresenceChart({
 
           {/* X-axis tick labels. */}
           {tickValues.map((t, i) => {
-            // Anchor edge labels so they don't clip past the plot
-            // area; centre everything in between.
             const anchor: TextAnchor =
-              i === 0 ? 'start' : i === TICK_COUNT - 1 ? 'end' : 'middle';
+              i === 0 ? 'start' : i === tickValues.length - 1 ? 'end' : 'middle';
             return (
               <SvgText
                 key={`xt-${i}`}
@@ -420,10 +452,53 @@ export function PresenceChart({
                 fill={colors.gray[500]}
                 textAnchor={anchor}
               >
-                {useDateLabels ? formatDate(t) : formatClock(t)}
+                {xTickLabel(t)}
               </SvgText>
             );
           })}
+
+          {/* "Now" marker — vertical line + status dot + label. */}
+          {effectiveNow != null ? (() => {
+            const nowX = toX(effectiveNow);
+            const nowState = stateAt(sorted, effectiveNow);
+            const nowOccupied = nowState?.occupied ?? false;
+            const dotColor = nowOccupied ? colors.statusBad : colors.statusGood;
+            const dotY = nowOccupied ? yOccupied : yVacant;
+            return (
+              <>
+                <Line
+                  x1={nowX}
+                  x2={nowX}
+                  y1={padTop}
+                  y2={padTop + plotH}
+                  stroke={colors.brandDark}
+                  strokeWidth={1.5}
+                  strokeOpacity={0.6}
+                  strokeDasharray="4,3"
+                />
+                {nowState ? (
+                  <Circle
+                    cx={nowX}
+                    cy={dotY}
+                    r={5}
+                    fill={dotColor}
+                    stroke={colors.white}
+                    strokeWidth={1.5}
+                  />
+                ) : null}
+                <SvgText
+                  x={nowX}
+                  y={padTop - 4}
+                  fontSize={9}
+                  fontWeight="700"
+                  fill={colors.brandDark}
+                  textAnchor="middle"
+                >
+                  {nowLabel}
+                </SvgText>
+              </>
+            );
+          })() : null}
 
           {/* Crosshair + active state marker. Drawn last so it
               always sits on top of bands / dots / labels. */}

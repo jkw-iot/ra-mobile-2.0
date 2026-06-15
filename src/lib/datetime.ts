@@ -91,7 +91,7 @@ function offsetFormatter(tz: string): Intl.DateTimeFormat | null {
   return fmt;
 }
 
-interface WallParts {
+export interface WallParts {
   year: number;
   month: number; // 1-12
   day: number;
@@ -102,7 +102,7 @@ interface WallParts {
 
 /** Read the wall-clock components of an instant in `tz`. Falls back to
  *  the device's own wall clock when the engine lacks timeZone support. */
-function partsInTz(utcMs: number, tz: string): WallParts {
+export function partsInTz(utcMs: number, tz: string): WallParts {
   const fmt = offsetFormatter(tz);
   if (!fmt) {
     const d = new Date(utcMs);

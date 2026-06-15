@@ -19,7 +19,7 @@ import type { LinePoint } from '@/features/indeklima/LineChart';
 import type { Param } from '@/features/indeklima/thresholds';
 import type { HistoryResponse, Sensor } from '@/services/api';
 import type { DetailPeriod } from '@/stores/detailPrefsStore';
-import { parseLegacy, wallTimeToInstant, DEFAULT_TENANT_TIMEZONE } from '@/lib/datetime';
+import { parseLegacy, wallTimeToInstant, partsInTz, type WallParts, DEFAULT_TENANT_TIMEZONE } from '@/lib/datetime';
 
 /** Date → `YYYY-MM-DD` (the format every indeklima endpoint expects). */
 export function ymd(d: Date): string {
@@ -382,4 +382,172 @@ export function formatRangeLabel(
   }
   const start = subMonths(anchor, 3);
   return `${MONTHS_DA[start.getMonth()]} ${start.getFullYear()} – ${MONTHS_DA[anchor.getMonth()]} ${anchor.getFullYear()}`;
+}
+
+// ── Nice time ticks for chart x-axes ──────────────────────
+// Produces round-boundary tick values (e.g. 06:00, 12:00, midnight)
+// and a recommended label format so callers never show "03:07" or
+// overlap illegibly.
+
+export type TickFormat = 'time' | 'date' | 'datetime';
+
+export interface NiceTimeTicks {
+  ticks: number[];
+  format: TickFormat;
+}
+
+const HOUR = 3_600_000;
+const DAY = 86_400_000;
+
+interface CandidateInterval {
+  ms: number;
+  snapFn: (p: WallParts, tz: string) => number;
+  stepFn: (prev: number, tz: string) => number;
+  format: TickFormat;
+}
+
+function snapToHour(p: WallParts, hourMultiple: number, tz: string): number {
+  const snapped = Math.ceil(p.hour / hourMultiple) * hourMultiple;
+  if (snapped >= 24) {
+    return wallTimeToInstant(p.year, p.month, p.day + 1, 0, 0, 0, tz);
+  }
+  return wallTimeToInstant(p.year, p.month, p.day, snapped, 0, 0, tz);
+}
+
+function snapToDay(p: WallParts, tz: string): number {
+  if (p.hour > 0 || p.minute > 0 || p.second > 0) {
+    return wallTimeToInstant(p.year, p.month, p.day + 1, 0, 0, 0, tz);
+  }
+  return wallTimeToInstant(p.year, p.month, p.day, 0, 0, 0, tz);
+}
+
+function buildCandidates(): CandidateInterval[] {
+  const hourCandidate = (h: number): CandidateInterval => ({
+    ms: h * HOUR,
+    snapFn: (p, tz) => snapToHour(p, h, tz),
+    stepFn: (prev, tz) => {
+      const pp = partsInTz(prev, tz);
+      const nextH = pp.hour + h;
+      if (nextH >= 24) {
+        return wallTimeToInstant(pp.year, pp.month, pp.day + 1, nextH - 24, 0, 0, tz);
+      }
+      return wallTimeToInstant(pp.year, pp.month, pp.day, nextH, 0, 0, tz);
+    },
+    format: 'time',
+  });
+
+  const dayCandidate = (days: number): CandidateInterval => ({
+    ms: days * DAY,
+    snapFn: (p, tz) => snapToDay(p, tz),
+    stepFn: (prev, tz) => {
+      const pp = partsInTz(prev, tz);
+      return wallTimeToInstant(pp.year, pp.month, pp.day + days, 0, 0, 0, tz);
+    },
+    format: 'date',
+  });
+
+  const monthCandidate = (months: number): CandidateInterval => ({
+    ms: months * 30 * DAY,
+    snapFn: (p, tz) => {
+      if (p.day === 1 && p.hour === 0 && p.minute === 0) {
+        return wallTimeToInstant(p.year, p.month, 1, 0, 0, 0, tz);
+      }
+      const nextMo = p.month + 1 > 12 ? 1 : p.month + 1;
+      const nextY = p.month + 1 > 12 ? p.year + 1 : p.year;
+      return wallTimeToInstant(nextY, nextMo, 1, 0, 0, 0, tz);
+    },
+    stepFn: (prev, tz) => {
+      const pp = partsInTz(prev, tz);
+      const nextMo = pp.month + months;
+      const y = pp.year + Math.floor((nextMo - 1) / 12);
+      const m = ((nextMo - 1) % 12) + 1;
+      return wallTimeToInstant(y, m, 1, 0, 0, 0, tz);
+    },
+    format: 'date',
+  });
+
+  return [
+    hourCandidate(1),
+    hourCandidate(2),
+    hourCandidate(3),
+    hourCandidate(6),
+    hourCandidate(12),
+    dayCandidate(1),
+    dayCandidate(2),
+    dayCandidate(7),
+    dayCandidate(14),
+    monthCandidate(1),
+    monthCandidate(3),
+  ];
+}
+
+const CANDIDATES = buildCandidates();
+
+/**
+ * Generate round time ticks for a chart x-axis.
+ *
+ * @param fromTs  Left edge of the axis (epoch ms, inclusive).
+ * @param toTs    Right edge of the axis (epoch ms, inclusive).
+ * @param maxTicks Maximum number of ticks to produce (derive from
+ *                 `plotWidth / minLabelSpacing`).
+ * @param tz      Tenant timezone (for snapping to local midnight etc.).
+ */
+export function generateNiceTimeTicks(
+  fromTs: number,
+  toTs: number,
+  maxTicks: number,
+  tz: string = DEFAULT_TENANT_TIMEZONE,
+): NiceTimeTicks {
+  const span = Math.max(1, toTs - fromTs);
+  const effectiveMax = Math.max(2, maxTicks);
+
+  let chosen: CandidateInterval | null = null;
+  for (const c of CANDIDATES) {
+    if (span / c.ms <= effectiveMax) {
+      chosen = c;
+      break;
+    }
+  }
+  if (!chosen) {
+    chosen = CANDIDATES[CANDIDATES.length - 1]!;
+  }
+
+  const startParts = partsInTz(fromTs, tz);
+  let tick = chosen.snapFn(startParts, tz);
+  if (tick < fromTs) {
+    tick = chosen.stepFn(tick, tz);
+  }
+
+  const ticks: number[] = [];
+  const safeLimit = effectiveMax + 2;
+  while (tick <= toTs && ticks.length < safeLimit) {
+    ticks.push(tick);
+    tick = chosen.stepFn(tick, tz);
+  }
+
+  // If the span is between 1-2 days and we're using day ticks, switch
+  // format to 'datetime' so labels like "15. jun 12:00" appear instead
+  // of just "15. jun" repeated once.
+  let fmt = chosen.format;
+  if (fmt === 'date' && span < 2.5 * DAY) {
+    fmt = 'datetime';
+  }
+
+  return { ticks, format: fmt };
+}
+
+/** Minimum pixel spacing per label format. */
+export const TICK_LABEL_MIN_WIDTH: Record<TickFormat, number> = {
+  time: 48,
+  date: 52,
+  datetime: 76,
+};
+
+/**
+ * Compute a safe maxTicks value from the available plot width and the
+ * expected label format. Used by chart components to avoid overlap.
+ */
+export function maxTicksForWidth(plotWidth: number, format?: TickFormat): number {
+  const minW = format ? TICK_LABEL_MIN_WIDTH[format] : 52;
+  return Math.max(2, Math.floor(plotWidth / minW));
 }

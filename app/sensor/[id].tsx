@@ -839,10 +839,14 @@ export default function SensorDetailScreen() {
                     width={width - spacing.xs * 2 - spacing.sm * 2}
                     fromTs={presenceBounds.fromTs}
                     toTs={presenceBounds.toTs}
+                    nowTs={presenceBounds.toTs > Date.now() ? Date.now() : undefined}
                     occupiedLabel={t('indeklima.sensors.presence.occupied')}
                     vacantLabel={t('indeklima.sensors.presence.vacant')}
+                    nowLabel={t('common.now')}
+                    tz={tt.tz}
                     formatClock={(ms) => tt.formatTime(new Date(ms))}
                     formatDate={(ms) => tt.formatMonthDay(new Date(ms))}
+                    formatDateTime={(ms) => tt.formatMonthDayTime(new Date(ms))}
                   />
                 )
               ) : points.length < 2 ? (
@@ -868,7 +872,10 @@ export default function SensorDetailScreen() {
                   stroke={paramColor(activeParam)}
                   zones={chartZones}
                   smooth={period !== 'day'}
+                  tz={tt.tz}
                   formatTimestamp={(ms) => tt.formatMonthDayTime(new Date(ms))}
+                  formatClock={(ms) => tt.formatTime(new Date(ms))}
+                  formatDate={(ms) => tt.formatMonthDay(new Date(ms))}
                   formatAxisLabel={(ms) => tt.formatMonthDayTime(new Date(ms))}
                 />
               )}
