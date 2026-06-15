@@ -551,3 +551,48 @@ export function maxTicksForWidth(plotWidth: number, format?: TickFormat): number
   const minW = format ? TICK_LABEL_MIN_WIDTH[format] : 52;
   return Math.max(2, Math.floor(plotWidth / minW));
 }
+
+// ── Comparison overlay helpers ────────────────────────────
+
+/**
+ * Shift all point timestamps forward by `offsetMs`. Used to align
+ * a previous-period dataset with the current period for visual
+ * comparison (ghost line overlay).
+ */
+export function shiftPointsForward(
+  points: readonly LinePoint[],
+  offsetMs: number,
+): LinePoint[] {
+  return points.map((p) => ({ t: p.t + offsetMs, v: p.v }));
+}
+
+/**
+ * Compute the ms offset to shift the previous period's data onto
+ * the current period. E.g. for 'week' the offset is 7 days.
+ */
+export function comparisonOffsetMs(period: DetailPeriod): number {
+  if (period === 'day') return 86_400_000;
+  if (period === 'week') return 7 * 86_400_000;
+  if (period === 'month') return 30 * 86_400_000;
+  return 90 * 86_400_000;
+}
+
+/**
+ * Compute the previous-period date range for fetching comparison data.
+ */
+export function previousPeriodRange(period: DetailPeriod, anchor: Date) {
+  if (period === 'day') {
+    const prev = subDays(anchor, 1);
+    return { from: ymd(prev), to: ymd(prev), useRaw: true };
+  }
+  if (period === 'week') {
+    const prevEnd = subDays(anchor, 7);
+    return { from: ymd(subDays(prevEnd, 6)), to: ymd(prevEnd), useRaw: false };
+  }
+  if (period === 'month') {
+    const prevEnd = subMonths(anchor, 1);
+    return { from: ymd(subMonths(prevEnd, 1)), to: ymd(prevEnd), useRaw: false };
+  }
+  const prevEnd = subMonths(anchor, 3);
+  return { from: ymd(subMonths(prevEnd, 3)), to: ymd(prevEnd), useRaw: false };
+}

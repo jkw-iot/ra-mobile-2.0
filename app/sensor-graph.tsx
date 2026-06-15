@@ -34,6 +34,7 @@ import {
   useSensor,
   useSensorHistoryRaw,
   useSensorHistoryHourly,
+  useSensorHistoryComparison,
   useSensorThresholds,
 } from '@/features/indeklima/hooks';
 import { LineChart } from '@/features/indeklima/LineChart';
@@ -150,6 +151,16 @@ export default function SensorGraphFullscreen() {
   const historyData = useRaw ? rawHistory.data : hourlyHistory.data;
   const historyLoading = useRaw ? rawHistory.isLoading : hourlyHistory.isLoading;
   const historyError = useRaw ? rawHistory.error : hourlyHistory.error;
+
+  const [compareEnabled, setCompareEnabled] = useState(false);
+
+  const { ghostPoints } = useSensorHistoryComparison(
+    activeParam !== 'pir' ? id : null,
+    activeParam,
+    period,
+    anchor,
+    compareEnabled && activeParam !== 'pir',
+  );
 
   const points = useMemo(
     () => historyToPoints(historyData, activeParam, tt.tz),
@@ -314,6 +325,39 @@ export default function SensorGraphFullscreen() {
             />
           </View>
 
+          {/* Compare toggle */}
+          {activeParam !== 'pir' ? (
+            <Pressable
+              onPress={() => {
+                haptic.light();
+                setCompareEnabled((v) => !v);
+              }}
+              hitSlop={8}
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  backgroundColor: compareEnabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)',
+                  borderRadius: radius.full,
+                  borderWidth: 1,
+                  borderColor: compareEnabled ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)',
+                }}
+              >
+                <Icon name="layers" size={13} color={colors.white} />
+                <Text style={{ color: colors.white, fontSize: 11, fontWeight: '600' }}>
+                  {t('indeklima.sensor_detail.compare_previous')}
+                </Text>
+              </View>
+            </Pressable>
+          ) : null}
+
           <Pressable
             onPress={close}
             hitSlop={12}
@@ -432,6 +476,8 @@ export default function SensorGraphFullscreen() {
                 formatClock={(ms) => tt.formatTime(new Date(ms))}
                 formatDate={(ms) => tt.formatMonthDay(new Date(ms))}
                 formatAxisLabel={(ms) => tt.formatMonthDayTime(new Date(ms))}
+                ghostPoints={compareEnabled ? ghostPoints : undefined}
+                ghostLabel={compareEnabled ? t('indeklima.sensor_detail.previous_period') : undefined}
               />
             </View>
           )}

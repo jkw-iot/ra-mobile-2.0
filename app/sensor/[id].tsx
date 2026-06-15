@@ -55,6 +55,7 @@ import {
   useSensor,
   useSensorHistoryRaw,
   useSensorHistoryHourly,
+  useSensorHistoryComparison,
   useSensorThresholds,
   useSensorTypes,
   useMoldZones,
@@ -113,6 +114,13 @@ function fmtNum(v: number | string | undefined, digits = 1): string {
   const n = toNumber(v);
   if (n == null) return '—';
   return n.toFixed(digits);
+}
+
+function hexToRgba(hex: string, a: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 /**
@@ -305,6 +313,17 @@ export default function SensorDetailScreen() {
   const historyData = useRaw ? raw.data : hourly.data;
   const historyLoading = useRaw ? raw.isLoading : hourly.isLoading;
   const historyError = useRaw ? raw.error : hourly.error;
+
+  // ── Comparison overlay state ───────────────────────────
+  const [compareEnabled, setCompareEnabled] = useState(false);
+
+  const { ghostPoints } = useSensorHistoryComparison(
+    !isVttParam && activeParam !== 'pir' ? id : null,
+    activeParam,
+    period,
+    anchor,
+    compareEnabled && !isVttParam && activeParam !== 'pir',
+  );
 
   const points = useMemo(
     () => isVttParam ? [] : historyToPoints(historyData, activeParam, tt.tz),
@@ -831,6 +850,47 @@ export default function SensorDetailScreen() {
                 </>
               ) : null}
 
+              {/* Compare toggle — not shown for PIR or VTT */}
+              {!isVttParam && activeParam !== 'pir' ? (
+                <Pressable
+                  onPress={() => {
+                    haptic.light();
+                    setCompareEnabled((v) => !v);
+                  }}
+                  hitSlop={6}
+                  style={{ alignSelf: 'flex-end', marginBottom: 2 }}
+                >
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      backgroundColor: compareEnabled ? hexToRgba(colors.brand, 0.1) : colors.gray[100],
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 10,
+                      borderWidth: compareEnabled ? 1 : 0,
+                      borderColor: compareEnabled ? hexToRgba(colors.brand, 0.3) : 'transparent',
+                    }}
+                  >
+                    <Icon
+                      name="layers"
+                      size={12}
+                      color={compareEnabled ? colors.brand : colors.gray[500]}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: '600',
+                        color: compareEnabled ? colors.brand : colors.gray[600],
+                      }}
+                    >
+                      {t('indeklima.sensor_detail.compare_previous')}
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : null}
+
               {isVttParam && sensorMoldZone ? (
                 <VttScaleCard
                   value={sensorMoldZone.mouldIndex}
@@ -902,6 +962,8 @@ export default function SensorDetailScreen() {
                   formatClock={(ms) => tt.formatTime(new Date(ms))}
                   formatDate={(ms) => tt.formatMonthDay(new Date(ms))}
                   formatAxisLabel={(ms) => tt.formatMonthDayTime(new Date(ms))}
+                  ghostPoints={compareEnabled ? ghostPoints : undefined}
+                  ghostLabel={compareEnabled ? t('indeklima.sensor_detail.previous_period') : undefined}
                 />
               )}
             </View>

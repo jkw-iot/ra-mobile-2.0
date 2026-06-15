@@ -16,6 +16,9 @@ import {
   pirSinceMsFromPoints,
   rawHistoryToPirReadings,
   ymd,
+  shiftPointsForward,
+  comparisonOffsetMs,
+  previousPeriodRange,
 } from '@/features/indeklima/chartHelpers';
 import { useTenantTime } from '@/hooks/useTenantTime';
 import {
@@ -33,6 +36,8 @@ import {
 import { fetchOutdoorWeather } from '@/services/openMeteo';
 import { cacheTiers } from '@/lib/queryClient';
 import { useTenantStore } from '@/stores/tenantStore';
+import type { Param } from '@/features/indeklima/thresholds';
+import type { DetailPeriod } from '@/stores/detailPrefsStore';
 
 // ── Sensor groups (full list grouped by location) ─────────
 export function useSensorGroups() {
@@ -221,6 +226,50 @@ export function useSensorHistoryHourly(
     gcTime: cacheTiers.downsampled.gcTime,
     meta: { cacheTier: 'downsampled' as const },
   });
+}
+
+// ── Comparison history (previous period as ghost overlay) ──
+export function useSensorHistoryComparison(
+  id: number | string | null,
+  param: Param,
+  period: DetailPeriod,
+  anchor: Date,
+  enabled: boolean = false,
+) {
+  const tenantId = useTenantStore((s) => s.activeTenantId);
+  const { tz } = useTenantTime();
+
+  const prev = previousPeriodRange(period, anchor);
+  const offsetMs = comparisonOffsetMs(period);
+
+  const rawQuery = useQuery({
+    queryKey: ['indeklima', 'sensor', id, 'history', 'raw', { date: prev.from, tenantId }],
+    queryFn: () => indeklimaApi.getSensorHistory(id!, { date: prev.from, resolution: 'raw' }),
+    enabled: enabled && prev.useRaw && id != null && tenantId !== null,
+    staleTime: cacheTiers.raw.staleTime,
+    gcTime: cacheTiers.raw.gcTime,
+    meta: { cacheTier: 'raw' as const },
+  });
+
+  const hourlyQuery = useQuery({
+    queryKey: ['indeklima', 'sensor', id, 'history', 'hourly', { from: prev.from, to: prev.to, tenantId }],
+    queryFn: () => indeklimaApi.getSensorHistory(id!, { from: prev.from, to: prev.to, resolution: 'hourly' }),
+    enabled: enabled && !prev.useRaw && id != null && tenantId !== null,
+    staleTime: cacheTiers.downsampled.staleTime,
+    gcTime: cacheTiers.downsampled.gcTime,
+    meta: { cacheTier: 'downsampled' as const },
+  });
+
+  const ghostPoints = useMemo(() => {
+    if (!enabled) return [];
+    const hist = prev.useRaw ? rawQuery.data : hourlyQuery.data;
+    const pts = historyToPoints(hist, param, tz);
+    return shiftPointsForward(pts, offsetMs);
+  }, [enabled, prev.useRaw, rawQuery.data, hourlyQuery.data, param, tz, offsetMs]);
+
+  const isLoading = prev.useRaw ? rawQuery.isLoading : hourlyQuery.isLoading;
+
+  return { ghostPoints, isLoading };
 }
 
 // ── Alerts ─────────────────────────────────────────────────

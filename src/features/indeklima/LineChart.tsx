@@ -1,6 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 // LineChart — time-series chart with threshold zone bands, nice
-// Y-axis labels, and interactive touch-to-inspect crosshair.
+// Y-axis labels, interactive touch-to-inspect crosshair,
+// pinch-to-zoom, pan, and optional comparison ghost line.
 //
 // `zones` is the primary API for colour-coded backgrounds. Build
 // it via `buildZonesForParam` in features/indeklima/thresholds.ts
@@ -8,7 +9,7 @@
 // the same sensor + parameter.
 // ══════════════════════════════════════════════════════════════
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, PanResponder, type GestureResponderEvent } from 'react-native';
+import { View, Text } from 'react-native';
 import Svg, {
   Path,
   Line,
@@ -25,7 +26,12 @@ import Animated, {
   useAnimatedProps,
   withTiming,
   Easing,
+  runOnJS,
 } from 'react-native-reanimated';
+import {
+  Gesture,
+  GestureDetector,
+} from 'react-native-gesture-handler';
 
 import { colors, type, radius } from '@/theme';
 import { haptic } from '@/lib/haptics';
@@ -73,6 +79,12 @@ export interface LineChartProps {
   formatDate?: (ms: number) => string;
   /** Format for combined date+time axis labels (e.g. "15. jun 12:00"). */
   formatAxisLabel?: (ms: number) => string;
+  /** Optional ghost/comparison line (e.g. previous period). */
+  ghostPoints?: readonly LinePoint[];
+  /** Label for the ghost line (shown in tooltip). */
+  ghostLabel?: string;
+  /** Stroke colour for the ghost line (defaults to gray). */
+  ghostStroke?: string;
 }
 
 // ── Nice-number helper ───────────────────────────────────
@@ -136,6 +148,8 @@ function hexToRgba(hex: string, a: number): string {
   return `rgba(${r},${g},${b},${a})`;
 }
 
+const MIN_ZOOM_SPAN_MS = 3_600_000; // 1 hour minimum visible window
+
 export function LineChart({
   points,
   width,
@@ -149,18 +163,34 @@ export function LineChart({
   formatClock: formatClockProp,
   formatDate: formatDateProp,
   formatAxisLabel = fallbackAxisLabel,
+  ghostPoints,
+  ghostLabel,
+  ghostStroke = colors.gray[400],
 }: LineChartProps) {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const prevIdxRef = useRef<number | null>(null);
 
+  // Zoom state: visible time window. null = show full extent.
+  const [viewDomain, setViewDomain] = useState<{ minT: number; maxT: number } | null>(null);
+
+  // Refs for gesture callbacks
+  const viewDomainRef = useRef(viewDomain);
+  viewDomainRef.current = viewDomain;
+
   useEffect(() => {
     setActiveIdx(null);
     prevIdxRef.current = null;
+    setViewDomain(null);
   }, [points]);
 
   const valid = useMemo(
     () => points.filter((p): p is LinePoint & { v: number } => p.v != null),
     [points],
+  );
+
+  const ghostValid = useMemo(
+    () => (ghostPoints ?? []).filter((p): p is LinePoint & { v: number } => p.v != null),
+    [ghostPoints],
   );
 
   // ── Draw-in animation ──────────────────────────────────
@@ -187,13 +217,26 @@ export function LineChart({
   const padTop = 14;
   const padBottom = 24;
 
-  const minT = valid[0]!.t;
-  const maxT = valid[valid.length - 1]!.t;
+  // Full data extent
+  const fullMinT = valid[0]!.t;
+  const fullMaxT = valid[valid.length - 1]!.t;
+  const fullTSpan = Math.max(1, fullMaxT - fullMinT);
+
+  // Current view (may be zoomed)
+  const minT = viewDomain?.minT ?? fullMinT;
+  const maxT = viewDomain?.maxT ?? fullMaxT;
   const tSpan = Math.max(1, maxT - minT);
 
-  const rawValues = valid.map((p) => p.v);
-  let dataMin = Math.min(...rawValues);
-  let dataMax = Math.max(...rawValues);
+  const zoomLevel = fullTSpan / tSpan;
+  const isZoomed = zoomLevel > 1.05;
+
+  // Y-axis: always based on full dataset to avoid jump on zoom
+  const allValues = valid.map((p) => p.v);
+  if (ghostValid.length > 0) {
+    allValues.push(...ghostValid.map((p) => p.v));
+  }
+  let dataMin = Math.min(...allValues);
+  let dataMax = Math.max(...allValues);
   if (zones) {
     for (const z of zones) {
       if (isFiniteBound(z.min) && z.min < dataMin) dataMin = z.min;
@@ -214,16 +257,38 @@ export function LineChart({
   const toY = (v: number) => padTop + plotH - ((v - minV) / vSpan) * plotH;
 
   // ── SVG path strings ───────────────────────────────────
-  const screenPts = valid.map((p) => ({ x: toX(p.t), y: toY(p.v) }));
+  // Filter points visible in current viewport (with 1-point margin for smooth edges)
+  const visibleValid = useMemo(() => {
+    if (!viewDomain) return valid;
+    const margin = tSpan * 0.02;
+    return valid.filter((p) => p.t >= minT - margin && p.t <= maxT + margin);
+  }, [valid, viewDomain, minT, maxT, tSpan]);
+
+  const screenPts = visibleValid.map((p) => ({ x: toX(p.t), y: toY(p.v) }));
 
   const linePath = smooth
     ? monotoneCubicPath(screenPts)
-    : 'M' + screenPts.map((p) => `${p.x},${p.y}`).join('L');
+    : screenPts.length > 0 ? 'M' + screenPts.map((p) => `${p.x},${p.y}`).join('L') : '';
 
   const baselineY = padTop + plotH;
-  const areaPath = linePath
-    + `L${screenPts[screenPts.length - 1]!.x},${baselineY}`
-    + `L${screenPts[0]!.x},${baselineY}Z`;
+  const areaPath = screenPts.length > 0
+    ? linePath
+      + `L${screenPts[screenPts.length - 1]!.x},${baselineY}`
+      + `L${screenPts[0]!.x},${baselineY}Z`
+    : '';
+
+  // Ghost line path
+  const visibleGhost = useMemo(() => {
+    if (ghostValid.length === 0) return [];
+    if (!viewDomain) return ghostValid;
+    const m = tSpan * 0.02;
+    return ghostValid.filter((p) => p.t >= minT - m && p.t <= maxT + m);
+  }, [ghostValid, viewDomain, minT, maxT, tSpan]);
+
+  const ghostScreenPts = visibleGhost.map((p) => ({ x: toX(p.t), y: toY(p.v) }));
+  const ghostLinePath = ghostScreenPts.length >= 2
+    ? (smooth ? monotoneCubicPath(ghostScreenPts) : 'M' + ghostScreenPts.map((p) => `${p.x},${p.y}`).join('L'))
+    : '';
 
   // Clip zones into visible rects.
   const renderZones = (zones ?? [])
@@ -280,7 +345,7 @@ export function LineChart({
     fillOpacity: areaOpacity.value * 0.15,
   }));
 
-  // ── Touch handling ─────────────────────────────────────
+  // ── Touch / crosshair handling ─────────────────────────
   const findNearestIdx = useCallback((localX: number) => {
     const dataX = ((localX - padLeft) / plotW) * tSpan + minT;
     let best = 0;
@@ -307,25 +372,131 @@ export function LineChart({
     setActiveIdx(idx);
   }, []);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e: GestureResponderEvent) => {
-        haptic.light();
-        handleTouch(e.nativeEvent.locationX);
-      },
-      onPanResponderMove: (e: GestureResponderEvent) => {
-        handleTouch(e.nativeEvent.locationX);
-      },
-    }),
-  ).current;
+  const clearCrosshair = useCallback(() => {
+    setActiveIdx(null);
+    prevIdxRef.current = null;
+  }, []);
 
+  // ── Gesture handling (pinch-to-zoom + pan + longpress-crosshair) ──
+  const pinchStartDomain = useRef({ minT: fullMinT, maxT: fullMaxT });
+  const panStartDomain = useRef({ minT: fullMinT, maxT: fullMaxT });
+
+  const clampDomain = useCallback((newMin: number, newMax: number) => {
+    let span = newMax - newMin;
+    if (span < MIN_ZOOM_SPAN_MS) {
+      const mid = (newMin + newMax) / 2;
+      newMin = mid - MIN_ZOOM_SPAN_MS / 2;
+      newMax = mid + MIN_ZOOM_SPAN_MS / 2;
+      span = MIN_ZOOM_SPAN_MS;
+    }
+    if (span >= fullTSpan * 0.95) return null; // back to full extent
+    if (newMin < fullMinT) { newMax += fullMinT - newMin; newMin = fullMinT; }
+    if (newMax > fullMaxT) { newMin -= newMax - fullMaxT; newMax = fullMaxT; }
+    newMin = Math.max(newMin, fullMinT);
+    newMax = Math.min(newMax, fullMaxT);
+    return { minT: newMin, maxT: newMax };
+  }, [fullMinT, fullMaxT, fullTSpan]);
+
+  const updateDomain = useCallback((d: { minT: number; maxT: number } | null) => {
+    setViewDomain(d);
+  }, []);
+
+  const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
+      pinchStartDomain.current = viewDomainRef.current ?? { minT: fullMinT, maxT: fullMaxT };
+    })
+    .onUpdate((e) => {
+      const start = pinchStartDomain.current;
+      const startSpan = start.maxT - start.minT;
+      const newSpan = startSpan / e.scale;
+      const focalRatio = (e.focalX - padLeft) / plotW;
+      const focal = start.minT + focalRatio * startSpan;
+      const newMin = focal - focalRatio * newSpan;
+      const newMax = focal + (1 - focalRatio) * newSpan;
+      const clamped = clampDomain(newMin, newMax);
+      runOnJS(updateDomain)(clamped);
+    });
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .minPointers(1)
+    .maxPointers(1)
+    .enabled(isZoomed)
+    .onStart(() => {
+      panStartDomain.current = viewDomainRef.current ?? { minT: fullMinT, maxT: fullMaxT };
+    })
+    .onUpdate((e) => {
+      const start = panStartDomain.current;
+      const startSpan = start.maxT - start.minT;
+      const deltaT = -(e.translationX / plotW) * startSpan;
+      const newMin = start.minT + deltaT;
+      const newMax = start.maxT + deltaT;
+      const clamped = clampDomain(newMin, newMax);
+      if (clamped) runOnJS(updateDomain)(clamped);
+    });
+
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(150)
+    .onStart((e) => {
+      runOnJS(haptic.light)();
+      runOnJS(handleTouch)(e.x);
+    });
+
+  const tapDragGesture = Gesture.Pan()
+    .minPointers(1)
+    .maxPointers(1)
+    .activateAfterLongPress(150)
+    .onStart((e) => {
+      runOnJS(haptic.light)();
+      runOnJS(handleTouch)(e.x);
+    })
+    .onUpdate((e) => {
+      runOnJS(handleTouch)(e.x);
+    })
+    .onEnd(() => {
+      // keep crosshair visible after release
+    });
+
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      runOnJS(updateDomain)(null);
+      runOnJS(clearCrosshair)();
+    });
+
+  const singleTapGesture = Gesture.Tap()
+    .numberOfTaps(1)
+    .onEnd((e) => {
+      if (activeIdx != null) {
+        runOnJS(clearCrosshair)();
+      } else {
+        runOnJS(haptic.light)();
+        runOnJS(handleTouch)(e.x);
+      }
+    });
+
+  const composedGesture = Gesture.Race(
+    doubleTapGesture,
+    Gesture.Simultaneous(pinchGesture, panGesture),
+    tapDragGesture,
+    singleTapGesture,
+  );
+
+  // ── Active point + ghost lookup ────────────────────────
   const activePoint = activeIdx != null ? valid[activeIdx] : null;
 
-  // Tooltip horizontal position — follow the active point, clamped
-  // so the pill never clips past the chart edges.
-  const tooltipWidth = 110;
+  const ghostActiveValue = useMemo(() => {
+    if (!activePoint || ghostValid.length === 0) return null;
+    let best: (typeof ghostValid)[number] | null = null;
+    let bestDist = Infinity;
+    for (const p of ghostValid) {
+      const dist = Math.abs(p.t - activePoint.t);
+      if (dist < bestDist) { bestDist = dist; best = p; }
+    }
+    return best;
+  }, [activePoint, ghostValid]);
+
+  const tooltipWidth = ghostValid.length > 0 ? 140 : 110;
   const activeX = activePoint ? toX(activePoint.t) : 0;
   const tooltipLeft = activePoint
     ? Math.max(4, Math.min(activeX - tooltipWidth / 2, width - tooltipWidth - 4))
@@ -359,6 +530,11 @@ export function LineChart({
             <Text style={{ color: colors.white, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>
               {activePoint.v.toFixed(1)}{unit ? ` ${unit}` : ''}
             </Text>
+            {ghostActiveValue ? (
+              <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 10, textAlign: 'center' }}>
+                {ghostLabel ? `${ghostLabel}: ` : ''}{ghostActiveValue.v.toFixed(1)}{unit ? ` ${unit}` : ''}
+              </Text>
+            ) : null}
             <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, textAlign: 'center' }}>
               {formatTimestamp(activePoint.t)}
             </Text>
@@ -366,163 +542,214 @@ export function LineChart({
         </View>
       ) : null}
 
-      <View {...panResponder.panHandlers}>
-        <Svg width={width} height={height}>
-          <Defs>
-            <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={stroke} stopOpacity="1" />
-              <Stop offset="1" stopColor={stroke} stopOpacity="0" />
-            </LinearGradient>
-            <ClipPath id="plotClip">
-              <Rect x={padLeft} y={padTop} width={plotW} height={plotH} />
-            </ClipPath>
-          </Defs>
+      <GestureDetector gesture={composedGesture}>
+        <View>
+          <Svg width={width} height={height}>
+            <Defs>
+              <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={stroke} stopOpacity="1" />
+                <Stop offset="1" stopColor={stroke} stopOpacity="0" />
+              </LinearGradient>
+              <ClipPath id="plotClip">
+                <Rect x={padLeft} y={padTop} width={plotW} height={plotH} />
+              </ClipPath>
+            </Defs>
 
-          {/* Zone backgrounds */}
-          {renderZones.map((z, i) => (
-            <Rect
-              key={`zone-${i}`}
-              x={padLeft}
-              y={z.y}
-              width={plotW}
-              height={z.height}
-              fill={z.color}
+            {/* Zone backgrounds */}
+            {renderZones.map((z, i) => (
+              <Rect
+                key={`zone-${i}`}
+                x={padLeft}
+                y={z.y}
+                width={plotW}
+                height={z.height}
+                fill={z.color}
+              />
+            ))}
+
+            {/* Horizontal gridlines + Y-axis labels */}
+            {ticks.map((tick, i) => {
+              const y = toY(tick);
+              if (y < padTop - 2 || y > padTop + plotH + 2) return null;
+              return [
+                <Line
+                  key={`hgrid-${i}`}
+                  x1={padLeft} x2={width - padRight}
+                  y1={y} y2={y}
+                  stroke={colors.gray[200]} strokeWidth={0.5}
+                  strokeOpacity={0.5}
+                />,
+                <SvgText
+                  key={`label-${i}`}
+                  x={padLeft - 4} y={y + 3}
+                  fontSize={10} fill={colors.gray[500]}
+                  textAnchor="end"
+                >
+                  {fmtTick(tick)}
+                </SvgText>,
+              ];
+            })}
+
+            {/* Vertical gridlines */}
+            {xTicks.map((t, i) => {
+              if (i === 0 || i === xTicks.length - 1) return null;
+              const x = toX(t);
+              return (
+                <Line
+                  key={`vgrid-${i}`}
+                  x1={x} x2={x}
+                  y1={padTop} y2={padTop + plotH}
+                  stroke={colors.gray[200]} strokeWidth={0.5}
+                  strokeOpacity={0.35}
+                  strokeDasharray="2,4"
+                />
+              );
+            })}
+
+            {/* Ghost comparison line (behind primary) */}
+            {ghostLinePath ? (
+              <Path
+                d={ghostLinePath}
+                fill="none"
+                stroke={ghostStroke}
+                strokeWidth={1.5}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                strokeDasharray="4,4"
+                opacity={0.4}
+                clipPath="url(#plotClip)"
+              />
+            ) : null}
+
+            {/* Area gradient fill */}
+            <AnimatedPath
+              d={areaPath}
+              fill={`url(#${gradientId})`}
+              clipPath="url(#plotClip)"
+              animatedProps={animatedAreaProps}
             />
-          ))}
 
-          {/* Horizontal gridlines + Y-axis labels */}
-          {ticks.map((tick, i) => {
-            const y = toY(tick);
-            if (y < padTop - 2 || y > padTop + plotH + 2) return null;
-            return [
-              <Line
-                key={`hgrid-${i}`}
-                x1={padLeft} x2={width - padRight}
-                y1={y} y2={y}
-                stroke={colors.gray[200]} strokeWidth={0.5}
-                strokeOpacity={0.5}
-              />,
-              <SvgText
-                key={`label-${i}`}
-                x={padLeft - 4} y={y + 3}
-                fontSize={10} fill={colors.gray[500]}
-                textAnchor="end"
-              >
-                {fmtTick(tick)}
-              </SvgText>,
-            ];
-          })}
+            {/* Data line with draw-in animation */}
+            <AnimatedPath
+              d={linePath}
+              fill="none"
+              stroke={stroke}
+              strokeWidth={2}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              strokeDasharray={pathLen}
+              animatedProps={animatedLineProps}
+              clipPath="url(#plotClip)"
+            />
 
-          {/* Vertical gridlines */}
-          {xTicks.map((t, i) => {
-            if (i === 0 || i === xTicks.length - 1) return null;
-            const x = toX(t);
-            return (
-              <Line
-                key={`vgrid-${i}`}
-                x1={x} x2={x}
-                y1={padTop} y2={padTop + plotH}
-                stroke={colors.gray[200]} strokeWidth={0.5}
-                strokeOpacity={0.35}
-                strokeDasharray="2,4"
-              />
-            );
-          })}
+            {/* Min / max markers */}
+            {showMinMax && !activePoint ? (
+              <>
+                {maxPt ? (
+                  <>
+                    <Circle
+                      cx={toX(maxPt.t)} cy={toY(maxPt.v)} r={3}
+                      fill={stroke} fillOpacity={0.6}
+                    />
+                    <SvgText
+                      x={toX(maxPt.t)} y={toY(maxPt.v) - 6}
+                      fontSize={9} fill={hexToRgba(stroke, 0.7)}
+                      textAnchor="middle" fontWeight="600"
+                    >
+                      {fmtTick(maxPt.v)}
+                    </SvgText>
+                  </>
+                ) : null}
+                {minPt ? (
+                  <>
+                    <Circle
+                      cx={toX(minPt.t)} cy={toY(minPt.v)} r={3}
+                      fill={stroke} fillOpacity={0.6}
+                    />
+                    <SvgText
+                      x={toX(minPt.t)} y={toY(minPt.v) + 12}
+                      fontSize={9} fill={hexToRgba(stroke, 0.7)}
+                      textAnchor="middle" fontWeight="600"
+                    >
+                      {fmtTick(minPt.v)}
+                    </SvgText>
+                  </>
+                ) : null}
+              </>
+            ) : null}
 
-          {/* Area gradient fill */}
-          <AnimatedPath
-            d={areaPath}
-            fill={`url(#${gradientId})`}
-            clipPath="url(#plotClip)"
-            animatedProps={animatedAreaProps}
-          />
-
-          {/* Data line with draw-in animation */}
-          <AnimatedPath
-            d={linePath}
-            fill="none"
-            stroke={stroke}
-            strokeWidth={2}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            strokeDasharray={pathLen}
-            animatedProps={animatedLineProps}
-          />
-
-          {/* Min / max markers */}
-          {showMinMax && !activePoint ? (
-            <>
-              {maxPt ? (
-                <>
-                  <Circle
-                    cx={toX(maxPt.t)} cy={toY(maxPt.v)} r={3}
-                    fill={stroke} fillOpacity={0.6}
-                  />
-                  <SvgText
-                    x={toX(maxPt.t)} y={toY(maxPt.v) - 6}
-                    fontSize={9} fill={hexToRgba(stroke, 0.7)}
-                    textAnchor="middle" fontWeight="600"
-                  >
-                    {fmtTick(maxPt.v)}
-                  </SvgText>
-                </>
-              ) : null}
-              {minPt ? (
-                <>
-                  <Circle
-                    cx={toX(minPt.t)} cy={toY(minPt.v)} r={3}
-                    fill={stroke} fillOpacity={0.6}
-                  />
-                  <SvgText
-                    x={toX(minPt.t)} y={toY(minPt.v) + 12}
-                    fontSize={9} fill={hexToRgba(stroke, 0.7)}
-                    textAnchor="middle" fontWeight="600"
-                  >
-                    {fmtTick(minPt.v)}
-                  </SvgText>
-                </>
-              ) : null}
-            </>
-          ) : null}
-
-          {/* Active crosshair */}
-          {activePoint ? (
-            <>
-              <Line
-                x1={toX(activePoint.t)} x2={toX(activePoint.t)}
-                y1={padTop} y2={padTop + plotH}
-                stroke={colors.brandDark} strokeWidth={1}
-                strokeOpacity={0.4}
-              />
+            {/* Ghost active point */}
+            {activePoint && ghostActiveValue ? (
               <Circle
-                cx={toX(activePoint.t)}
-                cy={toY(activePoint.v)}
-                r={5}
-                fill={stroke}
-                strokeWidth={2}
+                cx={toX(ghostActiveValue.t)}
+                cy={toY(ghostActiveValue.v)}
+                r={4}
+                fill={ghostStroke}
+                fillOpacity={0.5}
+                strokeWidth={1.5}
                 stroke={colors.white}
               />
-            </>
-          ) : null}
+            ) : null}
 
-          {/* X-axis tick labels */}
-          {xTicks.map((t, i) => {
-            const anchor = i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle';
-            return (
-              <SvgText
-                key={`xt-${i}`}
-                x={toX(t)}
-                y={padTop + plotH + 14}
-                fontSize={9}
-                fill={colors.gray[500]}
-                textAnchor={anchor}
-              >
-                {xTickLabel(t)}
-              </SvgText>
-            );
-          })}
-        </Svg>
-      </View>
+            {/* Active crosshair */}
+            {activePoint ? (
+              <>
+                <Line
+                  x1={toX(activePoint.t)} x2={toX(activePoint.t)}
+                  y1={padTop} y2={padTop + plotH}
+                  stroke={colors.brandDark} strokeWidth={1}
+                  strokeOpacity={0.4}
+                />
+                <Circle
+                  cx={toX(activePoint.t)}
+                  cy={toY(activePoint.v)}
+                  r={5}
+                  fill={stroke}
+                  strokeWidth={2}
+                  stroke={colors.white}
+                />
+              </>
+            ) : null}
+
+            {/* X-axis tick labels */}
+            {xTicks.map((t, i) => {
+              const anchor = i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle';
+              return (
+                <SvgText
+                  key={`xt-${i}`}
+                  x={toX(t)}
+                  y={padTop + plotH + 14}
+                  fontSize={9}
+                  fill={colors.gray[500]}
+                  textAnchor={anchor}
+                >
+                  {xTickLabel(t)}
+                </SvgText>
+              );
+            })}
+          </Svg>
+
+          {/* Zoom indicator */}
+          {isZoomed ? (
+            <View
+              style={{
+                position: 'absolute',
+                top: 2,
+                right: 8,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 8,
+              }}
+              pointerEvents="none"
+            >
+              <Text style={{ color: colors.white, fontSize: 9, fontWeight: '600' }}>
+                {zoomLevel.toFixed(1)}×
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </GestureDetector>
     </View>
   );
 }
