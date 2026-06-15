@@ -760,31 +760,71 @@ export default function SensorDetailScreen() {
             icon="graph-up"
             padding={spacing.sm}
             trailing={!isVttParam ? (
-              <Pressable
-                onPress={() => {
-                  haptic.light();
-                  router.push({
-                    pathname: '/sensor-graph',
-                    params: {
-                      id: String(id ?? ''),
-                      param: activeParam,
-                      period,
-                      anchor: anchor.toISOString(),
-                    },
-                  });
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={t('indeklima.sensor_detail.open_fullscreen')}
-                hitSlop={12}
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.7 : 1,
-                  padding: 8,
-                  marginRight: -8,
-                  marginVertical: -4,
-                })}
-              >
-                <Icon name="fullscreen" color={colors.gray[500]} size={30} />
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {activeParam !== 'pir' ? (
+                  <Pressable
+                    onPress={() => {
+                      haptic.light();
+                      setCompareEnabled((v) => !v);
+                    }}
+                    hitSlop={6}
+                  >
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        backgroundColor: compareEnabled ? hexToRgba(colors.brand, 0.1) : colors.gray[100],
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 10,
+                        borderWidth: compareEnabled ? 1 : 0,
+                        borderColor: compareEnabled ? hexToRgba(colors.brand, 0.3) : 'transparent',
+                      }}
+                    >
+                      <Icon
+                        name="layers"
+                        size={12}
+                        color={compareEnabled ? colors.brand : colors.gray[500]}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: '600',
+                          color: compareEnabled ? colors.brand : colors.gray[600],
+                        }}
+                      >
+                        {t('indeklima.sensor_detail.compare_previous')}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  onPress={() => {
+                    haptic.light();
+                    router.push({
+                      pathname: '/sensor-graph',
+                      params: {
+                        id: String(id ?? ''),
+                        param: activeParam,
+                        period,
+                        anchor: anchor.toISOString(),
+                      },
+                    });
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('indeklima.sensor_detail.open_fullscreen')}
+                  hitSlop={12}
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.7 : 1,
+                    padding: 8,
+                    marginRight: -8,
+                    marginVertical: -4,
+                  })}
+                >
+                  <Icon name="fullscreen" color={colors.gray[500]} size={30} />
+                </Pressable>
+              </View>
             ) : undefined}
           >
             <View style={{ gap: spacing.sm }}>
@@ -848,47 +888,6 @@ export default function SensorDetailScreen() {
                     />
                   </View>
                 </>
-              ) : null}
-
-              {/* Compare toggle — not shown for PIR or VTT */}
-              {!isVttParam && activeParam !== 'pir' ? (
-                <Pressable
-                  onPress={() => {
-                    haptic.light();
-                    setCompareEnabled((v) => !v);
-                  }}
-                  hitSlop={6}
-                  style={{ alignSelf: 'flex-end', marginBottom: 2 }}
-                >
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                      backgroundColor: compareEnabled ? hexToRgba(colors.brand, 0.1) : colors.gray[100],
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderRadius: 10,
-                      borderWidth: compareEnabled ? 1 : 0,
-                      borderColor: compareEnabled ? hexToRgba(colors.brand, 0.3) : 'transparent',
-                    }}
-                  >
-                    <Icon
-                      name="layers"
-                      size={12}
-                      color={compareEnabled ? colors.brand : colors.gray[500]}
-                    />
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontWeight: '600',
-                        color: compareEnabled ? colors.brand : colors.gray[600],
-                      }}
-                    >
-                      {t('indeklima.sensor_detail.compare_previous')}
-                    </Text>
-                  </View>
-                </Pressable>
               ) : null}
 
               {isVttParam && sensorMoldZone ? (

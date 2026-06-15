@@ -26,7 +26,6 @@ import Animated, {
   useAnimatedProps,
   withTiming,
   Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 import {
   Gesture,
@@ -402,6 +401,7 @@ export function LineChart({
   }, []);
 
   const pinchGesture = Gesture.Pinch()
+    .runOnJS(true)
     .onStart(() => {
       pinchStartDomain.current = viewDomainRef.current ?? { minT: fullMinT, maxT: fullMaxT };
     })
@@ -414,10 +414,11 @@ export function LineChart({
       const newMin = focal - focalRatio * newSpan;
       const newMax = focal + (1 - focalRatio) * newSpan;
       const clamped = clampDomain(newMin, newMax);
-      runOnJS(updateDomain)(clamped);
+      updateDomain(clamped);
     });
 
   const panGesture = Gesture.Pan()
+    .runOnJS(true)
     .activeOffsetX([-10, 10])
     .minPointers(1)
     .maxPointers(1)
@@ -432,46 +433,50 @@ export function LineChart({
       const newMin = start.minT + deltaT;
       const newMax = start.maxT + deltaT;
       const clamped = clampDomain(newMin, newMax);
-      if (clamped) runOnJS(updateDomain)(clamped);
+      if (clamped) updateDomain(clamped);
     });
 
   const longPressGesture = Gesture.LongPress()
+    .runOnJS(true)
     .minDuration(150)
     .onStart((e) => {
-      runOnJS(haptic.light)();
-      runOnJS(handleTouch)(e.x);
+      haptic.light();
+      handleTouch(e.x);
     });
 
   const tapDragGesture = Gesture.Pan()
+    .runOnJS(true)
     .minPointers(1)
     .maxPointers(1)
     .activateAfterLongPress(150)
     .onStart((e) => {
-      runOnJS(haptic.light)();
-      runOnJS(handleTouch)(e.x);
+      haptic.light();
+      handleTouch(e.x);
     })
     .onUpdate((e) => {
-      runOnJS(handleTouch)(e.x);
+      handleTouch(e.x);
     })
     .onEnd(() => {
       // keep crosshair visible after release
     });
 
   const doubleTapGesture = Gesture.Tap()
+    .runOnJS(true)
     .numberOfTaps(2)
     .onEnd(() => {
-      runOnJS(updateDomain)(null);
-      runOnJS(clearCrosshair)();
+      updateDomain(null);
+      clearCrosshair();
     });
 
   const singleTapGesture = Gesture.Tap()
+    .runOnJS(true)
     .numberOfTaps(1)
     .onEnd((e) => {
       if (activeIdx != null) {
-        runOnJS(clearCrosshair)();
+        clearCrosshair();
       } else {
-        runOnJS(haptic.light)();
-        runOnJS(handleTouch)(e.x);
+        haptic.light();
+        handleTouch(e.x);
       }
     });
 
