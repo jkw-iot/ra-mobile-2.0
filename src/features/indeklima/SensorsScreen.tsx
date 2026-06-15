@@ -17,6 +17,7 @@ import {
   Pressable,
   RefreshControl,
   FlatList,
+  ScrollView,
   InteractionManager,
 } from 'react-native';
 import { useMemo, useState, useEffect, useCallback } from 'react';
@@ -27,7 +28,6 @@ import { useRouter } from 'expo-router';
 
 import {
   AppHeader,
-  LoadingIndicator,
   ErrorBanner,
   Icon,
   StatusDot,
@@ -36,6 +36,8 @@ import {
   ParamPicker,
   type ParamKey,
 } from '@/components';
+import { SkeletonGroup } from '@/components/Skeleton';
+import { SensorCardSkeleton } from './SensorCardSkeleton';
 import { colors, radius, spacing, type, toneColor } from '@/theme';
 import {
   useSensorsFlat,
@@ -844,7 +846,26 @@ export default function IndeklimaSensorsScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgPrimary }} edges={['bottom']}>
         <AppHeader />
-        <LoadingIndicator />
+        {/* Navy panel skeleton: location picker + param chips */}
+        <View style={{ backgroundColor: colors.navy, paddingTop: spacing.xs, paddingBottom: spacing.md }}>
+          <SkeletonGroup>
+            <View style={{ paddingHorizontal: spacing.xs, gap: spacing.sm }}>
+              <View style={{ height: 36, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+              <View style={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.xs }}>
+                {[72, 64, 56, 64].map((w, i) => (
+                  <View key={i} style={{ width: w, height: 28, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                ))}
+              </View>
+            </View>
+          </SkeletonGroup>
+        </View>
+        <ScrollView contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: spacing.xl }}>
+          <SkeletonGroup>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SensorCardSkeleton key={i} />
+            ))}
+          </SkeletonGroup>
+        </ScrollView>
       </SafeAreaView>
     );
   }

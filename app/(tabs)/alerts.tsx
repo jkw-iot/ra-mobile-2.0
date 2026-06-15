@@ -10,7 +10,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   PageHeading,
-  LoadingIndicator,
   ErrorBanner,
   SectionCard,
   SegmentedControl,
@@ -18,6 +17,8 @@ import {
   Icon,
   AppHeader,
 } from '@/components';
+import { SkeletonGroup } from '@/components/Skeleton';
+import { AlertRowSkeleton } from '@/components/AlertRowSkeleton';
 import { colors, spacing, type } from '@/theme';
 import { useAlerts } from '@/features/indeklima/hooks';
 import { friendlyApiErrorMessage } from '@/lib/apiErrorMessage';
@@ -43,8 +44,6 @@ export default function AlertsScreen() {
         title={t('indeklima.alerts.title')}
         subtitle={t('indeklima.alerts.subtitle')}
       />
-      {isLoading ? <LoadingIndicator /> : null}
-
       {isError ? (
         <ErrorBanner message={friendlyApiErrorMessage(error, t)} />
       ) : null}
@@ -61,6 +60,15 @@ export default function AlertsScreen() {
         />
       </View>
 
+      {isLoading ? (
+        <View style={{ backgroundColor: colors.white }}>
+          <SkeletonGroup>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <AlertRowSkeleton key={i} />
+            ))}
+          </SkeletonGroup>
+        </View>
+      ) : (
       <FlatList
         data={filtered}
         keyExtractor={(item, idx) => `${item.sensorId}-${item.param}-${idx}`}
@@ -110,6 +118,7 @@ export default function AlertsScreen() {
         contentContainerStyle={{ paddingBottom: spacing.xl }}
         style={{ backgroundColor: colors.white }}
       />
+      )}
     </SafeAreaView>
   );
 }

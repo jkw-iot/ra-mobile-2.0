@@ -40,12 +40,15 @@ import {
 import {
   SectionCard,
   SegmentedControl,
-  LoadingIndicator,
   Icon,
   ErrorState,
   HeroBackButton,
   KpiTile,
 } from '@/components';
+import { SkeletonGroup } from '@/components/Skeleton';
+import { KpiTileSkeleton } from '@/components/KpiTileSkeleton';
+import { ChartSkeleton } from '@/components/ChartSkeleton';
+import { SensorHeroSkeleton } from '@/features/indeklima/SensorHeroSkeleton';
 import type { StatusBarZone } from '@/components';
 import { colors, spacing, type, toneColor } from '@/theme';
 import {
@@ -397,8 +400,30 @@ export default function SensorDetailScreen() {
   if (!sensor && sensorWaiting) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bgPrimary }}>
-        <HeaderShell title={t('common.loading')} onBack={() => router.back()} insetTop={insets.top} backLabel={t('common.back')} />
-        <LoadingIndicator />
+        <SkeletonGroup>
+          <SensorHeroSkeleton
+            insetTop={insets.top}
+            onBack={() => router.back()}
+            backLabel={t('common.back')}
+          />
+          <View style={{ paddingHorizontal: spacing.xs, paddingTop: spacing.md, gap: spacing.md }}>
+            {/* 2×2 KPI tile skeletons */}
+            <View style={{ gap: spacing.sm }}>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <KpiTileSkeleton />
+                <KpiTileSkeleton />
+              </View>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <KpiTileSkeleton />
+                <KpiTileSkeleton />
+              </View>
+            </View>
+            {/* Chart skeleton */}
+            <SectionCard title={t('indeklima.sensor_detail.history')} icon="graph-up" padding={spacing.sm}>
+              <ChartSkeleton />
+            </SectionCard>
+          </View>
+        </SkeletonGroup>
       </View>
     );
   }
@@ -813,7 +838,7 @@ export default function SensorDetailScreen() {
                   trendDays={sensorMoldZone.trendDays}
                 />
               ) : historyLoading ? (
-                <LoadingIndicator inline />
+                <ChartSkeleton />
               ) : activeParam === 'pir' ? (
                 points.length < 1 ? (
                   <View
