@@ -159,7 +159,7 @@ export function usePirSince(
     queryKey: ['indeklima', 'sensor', id, 'history', 'raw', { date: todayYmd, tenantId }],
     queryFn: () => indeklimaApi.getSensorHistory(id!, { date: todayYmd, resolution: 'raw' }),
     enabled: id != null && tenantId != null && hasPirReading,
-    staleTime: cacheTiers.raw.staleTime,
+    staleTime: cacheTiers.snapshot.staleTime,
     gcTime: cacheTiers.raw.gcTime,
     meta: { cacheTier: 'raw' as const },
   });
@@ -178,7 +178,7 @@ export function usePirSince(
     queryFn: () =>
       indeklimaApi.getSensorHistory(id!, { from: weekFrom, to: todayYmd, resolution: 'hourly' }),
     enabled: id != null && tenantId != null && hasPirReading,
-    staleTime: cacheTiers.downsampled.staleTime,
+    staleTime: cacheTiers.snapshot.staleTime,
     gcTime: cacheTiers.downsampled.gcTime,
     meta: { cacheTier: 'downsampled' as const },
   });

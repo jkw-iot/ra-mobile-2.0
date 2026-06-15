@@ -264,6 +264,20 @@ export default function SensorDetailScreen() {
 
   const today = useMemo(() => ymd(new Date()), []);
 
+  // When the snapshot delivers a newer measurement time, the cached
+  // history is stale — the "since" subtitle and presence graph would
+  // show data that predates the current reading. Invalidate this
+  // sensor's history queries so they refetch on next render.
+  const sensorTimeRef = useRef(sensor?.time);
+  useEffect(() => {
+    if (sensor?.time && sensor.time !== sensorTimeRef.current) {
+      sensorTimeRef.current = sensor.time;
+      queryClient.invalidateQueries({
+        queryKey: ['indeklima', 'sensor', id, 'history'],
+      });
+    }
+  }, [sensor?.time, id, queryClient]);
+
   // PIR "since" — always called before early-return guards to preserve
   // hook call order. Shares the day-view cache when period === 'day'.
   const pirSinceMs = usePirSince(id, today, sensor?.pir);
@@ -349,7 +363,10 @@ export default function SensorDetailScreen() {
     queryClient.invalidateQueries({
       queryKey: ['indeklima', 'scope-thresholds'],
     });
-  }, [refetch, queryClient]);
+    queryClient.invalidateQueries({
+      queryKey: ['indeklima', 'sensor', id, 'history'],
+    });
+  }, [refetch, queryClient, id]);
 
   // ── Auto-rotate to fullscreen graph ─────────────────────
   const devicePosture = useDeviceOrientation(true);
