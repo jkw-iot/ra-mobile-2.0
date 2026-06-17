@@ -5,6 +5,7 @@
 // understands it's a local condition, not a server error.
 // ══════════════════════════════════════════════════════════════
 import { View, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { colors, spacing, type as typography } from '@/theme';
@@ -14,6 +15,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 export function OfflineBanner() {
   const { isConnected } = useNetworkStatus();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   // null = still determining, true = online → render nothing
   if (isConnected !== false) return null;
@@ -28,7 +30,8 @@ export function OfflineBanner() {
         backgroundColor: '#EEF0F3',
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(93,124,143,0.2)',
-        paddingVertical: spacing.sm,
+        paddingTop: insets.top + spacing.sm,
+        paddingBottom: spacing.sm,
         paddingHorizontal: spacing.lg,
       }}
     >

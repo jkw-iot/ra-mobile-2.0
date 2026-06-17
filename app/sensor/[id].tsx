@@ -293,6 +293,14 @@ export default function SensorDetailScreen() {
   // hook call order. Shares the day-view cache when period === 'day'.
   const pirSinceMs = usePirSince(id, today, sensor?.pir);
 
+  // Current occupied state from the sensor snapshot — used to extend
+  // the presence chart's red band to "now" when hourly pir_sum = 0
+  // for the still-in-progress current hour would otherwise close the
+  // interval early.
+  const currentPirOccupied = sensor != null
+    ? (toNumber(sensor.pir) ?? 0) > 0
+    : undefined;
+
   const dateRange = useMemo(() => rangeForAnchor(period, anchor), [period, anchor]);
   const { useRaw } = dateRange;
 
@@ -924,6 +932,7 @@ export default function SensorDetailScreen() {
                     fromTs={presenceBounds.fromTs}
                     toTs={presenceBounds.toTs}
                     nowTs={presenceBounds.toTs > Date.now() ? Date.now() : undefined}
+                    currentOccupied={currentPirOccupied}
                     occupiedLabel={t('indeklima.sensors.presence.occupied')}
                     vacantLabel={t('indeklima.sensors.presence.vacant')}
                     nowLabel={t('common.now')}

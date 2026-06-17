@@ -134,6 +134,10 @@ export default function SensorGraphFullscreen() {
 
   const sensorQuery = useSensor(id);
   const thresholdsQuery = useSensorThresholds(id);
+  const sensor = sensorQuery.data;
+  const currentPirOccupied = sensor != null && sensor.pir != null
+    ? Number(sensor.pir) > 0
+    : undefined;
 
   const dateRange = useMemo(() => rangeForAnchor(period, anchor), [period, anchor]);
   const useRaw = dateRange.useRaw;
@@ -219,10 +223,10 @@ export default function SensorGraphFullscreen() {
   const chartWidth = rotW - PAD * 2;
   const chartHeight = rotH - PAD * 2 - BUTTON_ROOM;
 
-  const unit = unitForParam(sensorQuery.data, activeParam);
+  const unit = unitForParam(sensor, activeParam);
   const stroke = paramColor(activeParam);
 
-  const sensorName = sensorQuery.data?.name ?? '';
+  const sensorName = sensor?.name ?? '';
 
   return (
     <View
@@ -426,6 +430,7 @@ export default function SensorGraphFullscreen() {
                   fromTs={presenceBounds.fromTs}
                   toTs={presenceBounds.toTs}
                   nowTs={presenceBounds.toTs > Date.now() ? Date.now() : undefined}
+                  currentOccupied={currentPirOccupied}
                   occupiedLabel={t('indeklima.sensors.presence.occupied')}
                   vacantLabel={t('indeklima.sensors.presence.vacant')}
                   nowLabel={t('common.now')}

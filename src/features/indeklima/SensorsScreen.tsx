@@ -516,6 +516,7 @@ function SensorCard({
                 fontWeight: '600',
                 color: isSilent ? colors.statusBad : colors.gray[500],
                 letterSpacing: 0.4,
+                fontVariant: ['tabular-nums'],
               }}
             >
               {timeInfo.text.toUpperCase()}
@@ -534,6 +535,7 @@ function SensorCard({
                   fontWeight: '700',
                   color: primaryValueColor,
                   letterSpacing: -0.5,
+                  fontVariant: ['tabular-nums'],
                 }}
               >
                 {primaryValue}

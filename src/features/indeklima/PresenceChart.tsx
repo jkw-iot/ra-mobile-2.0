@@ -83,6 +83,14 @@ export interface PresenceChartProps {
   formatDate?: (ms: number) => string;
   /** Format for combined date+time axis labels (e.g. "15. jun 12:00"). */
   formatDateTime?: (ms: number) => string;
+  /**
+   * Live occupied/vacant state from the sensor snapshot. When provided,
+   * the chart extends the last known occupied interval all the way to
+   * `nowTs` even when hourly aggregates report pir_sum = 0 for the
+   * still-in-progress current hour (which would otherwise close the
+   * interval early and incorrectly show green up to "now").
+   */
+  currentOccupied?: boolean;
 }
 
 interface ClassifiedPoint {
@@ -150,6 +158,7 @@ export function PresenceChart({
   formatClock = fallbackClock,
   formatDate = fallbackDate,
   formatDateTime,
+  currentOccupied,
 }: PresenceChartProps) {
   const fmtDateTime = (ms: number): string => `${formatDate(ms)} · ${formatClock(ms)}`;
   const padLeft = 56;
@@ -201,10 +210,22 @@ export function PresenceChart({
       }
     }
     if (intStart !== null && sorted.length > 0) {
-      out.push({ from: intStart, to: sorted[sorted.length - 1]!.t });
+      out.push({ from: intStart, to: bandEndTs });
+    }
+    // Hourly aggregates report pir_sum = 0 for the still-in-progress
+    // current hour even when the sensor is occupied (no new trigger yet
+    // this hour). This closes the occupied interval early and leaves a
+    // green gap from the last complete hour to "now". When the caller
+    // passes the live snapshot state, use it to extend the last known
+    // occupied interval to bandEndTs.
+    if (currentOccupied === true && effectiveNow != null && out.length > 0) {
+      const last = out[out.length - 1]!;
+      if (last.to < bandEndTs) {
+        out[out.length - 1] = { from: last.from, to: bandEndTs };
+      }
     }
     return out;
-  }, [sorted]);
+  }, [sorted, bandEndTs, currentOccupied, effectiveNow]);
 
   const transitions = useMemo<TransitionDot[]>(() => {
     const out: TransitionDot[] = [];
